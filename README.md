@@ -78,6 +78,23 @@ Remaining untested suspects are listed in [`docs/theory.md`](docs/theory.md) §9
 One item is still to source, and it blocks the flutter validation (§10.3) only: the structural
 static mass moment `S` and density `ρ`, which must come from Ref. [3] (Dimitriadis & Li).
 
+### Limitations
+
+**[`docs/theory.md`](docs/theory.md) §15** documents the method's envelope in full. The headlines:
+
+- **No Reynolds number anywhere in the model**, though dynamic stall is strongly Re-dependent.
+  Both validation cases sit at Re ≈ 1–2 × 10⁶, which masks the omission.
+- **Constants are fitted at Ma ≥ 0.30 but §10.1 runs at Ma = 0.12.** The low-Mach modification
+  replaces only two of them (`T_b`, `C_N1`). This is an untested suspect for the §10.1 shortfall,
+  and it explains why §10.0 — at the constants' native Mach — passes.
+- **The model is non-smooth**, and the paper's conclusions are *about bifurcations*. Non-smooth
+  systems admit transitions with no smooth analogue, so the "subcritical Hopf" classification
+  presumes regularity the model lacks. Treat §10.3's labels as descriptive; check whether
+  transition velocities move with step size.
+- **Constants are NACA0012-specific.** Applying them to another section fails silently.
+- **No structural damping, 2 DOF, rigid, strictly 2D**, and added mass enters as a load rather
+  than in the mass matrix.
+
 Correct constants also make the system **stiff** (ratio ~354; fastest state τ = 0.020
 semi-chords), so explicit RK4 needs >891 steps/cycle here. The driver raises with the required
 step count rather than returning a silently diverged run. This is precisely why the paper uses

@@ -13,6 +13,10 @@ The paper is not self-contained — it defers roughly 40% of the model to its re
 pieces have all been recovered; **§9 records where each came from**, and is the section to read
 before changing any coefficient.
 
+**Before extending this model to a new airfoil, Reynolds number, or amplitude, read §15 —
+limitations of the method.** In particular, §15.4 bears directly on how much weight the
+bifurcation conclusions in §10.3 can carry.
+
 **Supporting sources** (both required to implement the paper):
 
 - **[LN]** Leishman J.G., Nguyen K.Q., "State-Space Representation of Unsteady Airfoil Behavior,"
@@ -684,7 +688,161 @@ Collected for convenience; each is discussed in context above.
 
 ---
 
-## 15. References (as cited by the paper)
+## 15. Limitations of the method
+
+The model reproduces dynamic-stall airloads well (§10.0) but it is a semi-empirical correlation
+with a bounded envelope, and several of its properties bear directly on how much weight the
+flutter conclusions in §10.3 can carry. Read this before extending the model to a new airfoil,
+Reynolds number, or amplitude.
+
+### 15.1 It is a correlation, not a prediction from geometry
+
+The Leishman–Beddoes model contains no geometric input. Thickness, camber, and leading-edge
+radius enter *only* through fitted constants. The table in §13 is **NACA0012-specific**; the
+constants come from static and dynamic wind-tunnel data for that section.
+
+Consequences:
+
+- The OA207 case (§10.2) needs its own constant set. The paper does not state what it changed,
+  which makes that validation case unreproducible as published.
+- Applying NACA0012 constants to any other section is unsupported, and will fail silently — the
+  model will produce plausible-looking hysteresis loops that are simply wrong.
+
+### 15.2 Reynolds number does not appear anywhere
+
+Re is not an input to any equation in the formulation, yet dynamic-stall onset, vortex strength
+and reattachment are all strongly Re-dependent.
+
+The omission is masked in this paper because both validation cases sit at the same order —
+Re ≈ 1.5 × 10⁶ (NACA0012, §10.1) and 2.0 × 10⁶ (OA207, §10.2). Extrapolating to low Re (small
+UAVs, sub-scale wind-tunnel models, MAVs) is not supported by anything in this model; that regime
+has its own modified-LB literature.
+
+### 15.3 Constants are tabulated at Ma ≥ 0.30 but used at Ma = 0.12
+
+The empirical tables (§13, and [CH] Table 2.1) **bottom out at Ma = 0.30**. The §10.1 validation
+runs at Ma = 0.12 — well below the fitted range.
+
+The paper's low-Mach modification replaces only **two** constants: `T_b = 2.2` and `C_N1 = 1.75`.
+Everything else — `T_p`, `T_f`, `T_v`, `T_vl`, `α₁`, `S₁`, `S₂`, `C_Nα` — is the Ma = 0.30 column
+used unchanged at a quarter of that Mach number.
+
+This is a plausible contributor to the §10.1 magnitude shortfall, and it is **untested** (§9.3).
+It also explains why §10.0 — which runs at the constants' native Ma = 0.30 — passes while §10.1
+does not.
+
+### 15.4 The model is non-smooth, and the paper's conclusions are about bifurcations
+
+**This is the most consequential limitation for §10.3.** The right-hand side contains hard
+switches, not just nonlinearities:
+
+| Switch | Discontinuous in |
+|---|---|
+| `σ₁`, `σ₂` tables (§9.2) | `τ_v` at `T_vl`, `2T_vl`; and in `sign(α·α')` |
+| stall onset `\|x14\| > C_N1` | the state itself |
+| `α₁ₙ` droop (Eq. 2.54) | `sign(α·α')` |
+| Kirchhoff `f` (Eq. 11) | gradient discontinuous at `\|α\| = α₁` |
+| `V_x` (Eq. 19) | branch change at `τ = T_v` |
+| Eq. (15) feeding condition | `α·ċ_v` sign and the `τ_v` window |
+
+Two distinct consequences:
+
+**(a) Numerical.** No classical smooth-ODE convergence theory applies. Adaptive step-size solvers
+mis-handle the switches by construction, which is why integration here is fixed-step (§11). Our
+event handling applies switches *between* steps, so the crossing instant is resolved only to
+`O(Δs)` — accuracy near a switch is first-order regardless of the integrator's formal order.
+
+**(b) Mathematical, and more serious.** Non-smooth dynamical systems admit bifurcations with **no
+smooth analogue** — grazing, sliding, and other discontinuity-induced transitions. The paper
+classifies its results in the language of smooth theory: a *subcritical Hopf bifurcation*, and
+symmetric/asymmetric *limit cycles*. That classification presumes smoothness the model does not
+have.
+
+Some of the reported structure may therefore be an artefact of the switches rather than of the
+physics. This is a documented concern for exactly this model — see Galvanetto, Peiró &
+Chantharasenawong, "An assessment of some effects of the nonsmoothness of the Leishman–Beddoes
+dynamic stall model on the nonlinear dynamics of a typical aerofoil section."
+
+**Practical guidance:** treat §10.3's bifurcation *classification* as descriptive rather than as a
+rigorous dynamical-systems claim. The velocities at which behaviour changes are meaningful and
+worth reproducing; the labels attached to those transitions are less so. When reproducing the
+bifurcation diagrams, check sensitivity to step size — a transition velocity that moves with `Δs`
+is a numerical artefact of switch resolution, not a physical boundary.
+
+### 15.5 The static Kirchhoff reconstruction has a limited range
+
+- `f(α, α₁)` is written in `|α|` and is therefore **even**: it cannot represent camber. The paper
+  bolts asymmetry back on through `C_m0`, which is a moment offset, not a genuine cambered-section
+  model.
+- Kirchhoff lift diverges from experiment beyond **α ≈ 60°** ([CH] Fig. 2.4, against Sheldahl &
+  Klimas data); calculations should be confined to `|α| ≤ 60°`.
+- §10.1 peaks at α = 25°, comfortably inside — but a growing flutter LCO can exit the valid range
+  *silently*, since nothing in the formulation flags it. Worth an explicit runtime check when
+  running §10.3 sweeps.
+
+### 15.6 Reattachment is the weakest branch of the model
+
+Both source documents concede this independently:
+
+- **[CH]**: "A major discrepancy is observed during the reattachment period, but this is also
+  present in the original numerical results reported by Leishman."
+- **Shao**: predicted `C_N` is "a little higher than experimental data at the low angle of attack
+  of flow reattachment phase", which the paper argues makes flutter analysis conservative.
+
+That argument holds for a *flutter boundary* but not for *LCO amplitude*. LCO amplitude is set by
+the balance of energy input and extraction integrated over the whole cycle, so an error confined
+to the reattachment branch still biases both the amplitude and the velocities at which
+bifurcations occur.
+
+### 15.7 The structural model is deliberately minimal
+
+- **2 DOF, rigid section, linear springs.** No chordwise flexibility, no higher modes, no
+  geometric stiffening.
+- **No structural damping at all** (`C_h = C_θ = 0`) — every dissipative mechanism in the model is
+  aerodynamic. Real mounts have hysteretic and bearing damping, so predicted flutter onset will be
+  earlier than reality and LCO amplitudes larger.
+- **`α = θ + ḣ/V` (Eq. 25) is a small-angle, quasi-steady inflow relation.** It is a linearisation
+  valid for `ḣ/V` small; at large LCO amplitude near stall that assumption is doing real work.
+- **`q = θ̇c/V` carries pitch rate only.** Plunge acceleration's contribution to the 3/4-chord
+  downwash is not carried as a separate input to Eq. (8).
+- **Added mass enters only as a load,** through the impulsive terms, which are functions of `α`
+  and `q`. Physically, added mass modifies the *inertia* of the coupled system — it belongs in the
+  mass matrix. Representing it as an external load is an approximation that can shift computed
+  flutter boundaries. (There is a dedicated literature on this: "Assessment of added mass effects
+  on flutter boundaries using the Leishman–Beddoes dynamic stall model.")
+- **Elastic axis at the quarter chord is inferred**, not stated — it follows only from `I_θ` being
+  defined about `c/4` (§10.3).
+- **Strictly 2D.** No finite span, no three-dimensional stall relief, no sweep — all of which
+  delay and soften stall on a real wing or blade.
+
+### 15.8 Implementation-specific caveats
+
+Things true of *this codebase* rather than of the method, carried here so they are not forgotten:
+
+| Item | Status |
+|---|---|
+| Eq. (16) | implemented **with** the `V/b` factor the paper omits (§14, defect 2) |
+| Eq. (18) combination | ambiguous; both readings implemented, neither matches (§9.3) |
+| Phase switching | keyed on `x14` (this paper's criterion); **[CH]** keys on `x9` — our choice |
+| Vortex clock reset | inferred from **[CH]**, never stated by this paper |
+| §10.1 magnitude | **unvalidated** — `C_N` 30% low, `C_m` 48% low; any flutter result inherits this |
+| Newmark integrator | implemented but unused in validation runs (RK4 at ≥891 steps/cycle) |
+| Structural model | defined in config only; coupling and §10.3 not yet implemented |
+
+### 15.9 Validity envelope, at a glance
+
+| Quantity | Supported range | Note |
+|---|---|---|
+| Mach | `< 0.3` (enforced in `config.Flow`) | constants themselves fitted at `≥ 0.30` (§15.3) |
+| Reynolds | ~1–2 × 10⁶ as validated | **not a model input** (§15.2) |
+| Angle of attack | `\|α\| ≤ 60°` | Kirchhoff reconstruction limit (§15.5) |
+| Airfoil | NACA0012 only | constants are per-section (§15.1) |
+| Structure | 2-DOF rigid, undamped, linear | (§15.7) |
+| Flow | 2D, attached through deep stall | no finite span or 3D relief (§15.7) |
+
+---
+
+## 16. References (as cited by the paper)
 
 Key ones for gap-closing are marked ★.
 
