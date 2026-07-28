@@ -53,9 +53,19 @@ class Airloads:
 class LBModel:
     """Modified Leishman-Beddoes model for one airfoil at one Mach number."""
 
-    def __init__(self, airfoil: Airfoil, mach: float):
+    def __init__(
+        self, airfoil: Airfoil, mach: float, a_h: float = attached.QUARTER_CHORD_AH
+    ):
+        """``a_h`` is the pitch-axis offset from mid-chord, in semi-chords.
+
+        It enters only through the 3/4-chord incidence (see
+        :func:`attached.pitch_rate_factor`). The default, -0.5, is the quarter
+        chord assumed by [LN] and by the forced-pitch experiments, so
+        prescribed-motion cases are unaffected.
+        """
         self.af = airfoil
         self.mach = mach
+        self.a_h = a_h
 
     # -- initial condition ------------------------------------------------
     def initial_state(self, alpha0: float = 0.0) -> np.ndarray:
@@ -92,7 +102,7 @@ class LBModel:
 
         # -- attached flow, x1..x8 (single pass; see attached.evaluate) ----
         dxa, alpha_e, c_n_circ, c_n_i, _ = attached.evaluate(
-            x[:8], alpha, q, af, self.mach
+            x[:8], alpha, q, af, self.mach, self.a_h
         )
         dx[:8] = dxa
         c_n_pot = c_n_circ + c_n_i
@@ -172,7 +182,7 @@ class LBModel:
         af = self.af
 
         _, alpha_e, c_n_circ, c_n_i, c_m_i = attached.evaluate(
-            x[:8], alpha, q, af, self.mach
+            x[:8], alpha, q, af, self.mach, self.a_h
         )
         c_n_pot = c_n_circ + c_n_i
 

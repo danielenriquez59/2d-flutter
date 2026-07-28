@@ -116,6 +116,12 @@ Ref. [3] (Dimitriadis & Li, *AIAA J.* 47(11), 2009) settles the structural quest
 - **The mean-incidence hypothesis is refuted.** The source states the equilibrium is at zero
   pitch and loses stability at 13 m/s.
 
+**Pitch-axis correction applied.** [LN]'s `α_{3/4} = α + q/2` assumes pitching about the quarter
+chord; for an axis at `a_h` the factor is `(0.5 − a_h)`. With this rig's `a_h = −0.2333` that is
+**0.7333**, so the pitch-rate downwash had been over-predicted by **36%**. `a_h = −0.5` returns
+1.0 and recovers [LN] exactly, so forced-pitch cases are unaffected. It is a correctness fix, not
+a resolution: the torsion mode stays damped.
+
 The experiment's sequence is fold at 12.2, subcritical Hopf at 13.0, divergence-driven asymmetric
 LCO at 17.8. We reproduce the divergence bifurcation, put the fold ~2 m/s low, and miss the Hopf.
 

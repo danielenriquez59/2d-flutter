@@ -790,7 +790,7 @@ likely the same defect**, which also explains the over-large LCO amplitudes.
 | 4 | `a_h`, per-span scaling | **resolved** — Table 1 |
 | 5 | `x_θ` | still unstated; shown not to affect onset |
 | 6 | `ρ` | still assumed 1.225 |
-| 7 | `α_{3/4}` pitch-axis factor | approximation in code; ~24% on one damping term |
+| 7 | `α_{3/4}` pitch-axis factor | **fixed** — see below |
 
 
 ---

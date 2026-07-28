@@ -59,6 +59,28 @@ A3, A4, B3, B4 = 1.5, -0.5, 0.25, 0.1
 #: Circulatory pitch-rate moment pole, their Appendix C (A10).
 B5 = 0.5
 
+#: Pitch-axis offset assumed by [LN]: the quarter chord, a_h = -0.5.
+QUARTER_CHORD_AH = -0.5
+
+
+def pitch_rate_factor(a_h: float) -> float:
+    """Coefficient on ``q/2`` in the 3/4-chord incidence, for a pitch axis at ``a_h``.
+
+    [LN] write ``alpha_3/4 = alpha + q/2``, which is the downwash a pitch rate
+    induces at the 3/4-chord point **when the pitch axis is the quarter chord**.
+    For a general axis the moment arm changes:
+
+        pitch axis at   x_ea = b(1 + a_h)   from the leading edge
+        3/4-chord at    x    = 1.5 b
+        arm             = 1.5b - b(1 + a_h) = b(0.5 - a_h)
+
+    so the induced incidence is ``theta_dot * b(0.5 - a_h) / V``. With
+    ``q = theta_dot*c/V = 2*b*theta_dot/V`` this is ``(0.5 - a_h) * q/2``.
+
+    ``a_h = -0.5`` returns 1.0 and recovers [LN] exactly.
+    """
+    return 0.5 - a_h
+
 
 def beta(mach: float) -> float:
     """Prandtl-Glauert compressibility factor ``sqrt(1 - M^2)``."""
@@ -97,14 +119,16 @@ def _k_constants(mach: float) -> tuple[float, float, float, float]:
 
 
 def derivatives(
-    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float,
+    a_h: float = QUARTER_CHORD_AH,
 ) -> np.ndarray:
     """d(x1..x8)/ds for the scaled states."""
     bsq = beta(mach) ** 2
     ti = ti_s(mach)
     k_a, k_q, k_am, k_qm = _k_constants(mach)
 
-    alpha_34 = alpha + 0.5 * q  # Leishman & Nguyen, below Eq. (18)
+    # Leishman & Nguyen, below Eq. (18), generalised off the quarter chord.
+    alpha_34 = alpha + pitch_rate_factor(a_h) * 0.5 * q
 
     dx = np.empty(N_STATES)
     # Circulatory (Eq. 17), driven by the 3/4-chord incidence.
@@ -143,7 +167,8 @@ def circulatory_normal_force(x: np.ndarray, af: Airfoil, mach: float) -> float:
 
 
 def impulsive_loads(
-    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float,
+    a_h: float = QUARTER_CHORD_AH,
 ) -> tuple[float, float]:
     """``(C_N^I, C_m^I)`` -- the attached-flow loads carried by superscript I.
 
@@ -154,7 +179,7 @@ def impulsive_loads(
     bta = beta(mach)
     ti = ti_s(mach)
     k_a, k_q, k_am, k_qm = _k_constants(mach)
-    dx = derivatives(x, alpha, q, af, mach)
+    dx = derivatives(x, alpha, q, af, mach, a_h)
 
     # -- normal force: C_N^I = (4/M)*xdot3 + (1/M)*xdot4 ------------------
     c_n_i = (4.0 / m) * dx[2] + (1.0 / m) * dx[3]
@@ -175,15 +200,17 @@ def impulsive_loads(
 
 
 def potential_normal_force(
-    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float,
+    a_h: float = QUARTER_CHORD_AH,
 ) -> float:
     """``C_N^p = C_N^C + C_N^I`` (paper Eq. 10) -- drives the pressure lag x9."""
-    c_n_i, _ = impulsive_loads(x, alpha, q, af, mach)
+    c_n_i, _ = impulsive_loads(x, alpha, q, af, mach, a_h)
     return circulatory_normal_force(x, af, mach) + c_n_i
 
 
 def evaluate(
-    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float,
+    a_h: float = QUARTER_CHORD_AH,
 ) -> tuple[np.ndarray, float, float, float, float]:
     """Everything the caller needs from the attached-flow block, in one pass.
 
@@ -199,7 +226,7 @@ def evaluate(
     k_a, k_q, k_am, k_qm = _k_constants(mach)
     m = max(mach, 1e-9)
 
-    alpha_34 = alpha + 0.5 * q
+    alpha_34 = alpha + pitch_rate_factor(a_h) * 0.5 * q
     dx = np.empty(N_STATES)
     dx[0] = -af.b1 * bsq * x[0] + alpha_34
     dx[1] = -af.b2 * bsq * x[1] + alpha_34

@@ -50,7 +50,9 @@ class AeroelasticSystem:
         if case.structure is None:
             raise ValueError(f"case {case.name!r} has no structure block")
         self.case = case
-        self.aero = LBModel(case.airfoil, case.flow.mach)
+        # The section pitches about the ELASTIC AXIS, not the quarter chord,
+        # so the 3/4-chord incidence needs the structure's a_h.
+        self.aero = LBModel(case.airfoil, case.flow.mach, case.structure.a_h)
         self.struct = StructuralModel(case.structure)
         self.V = case.flow.V
         self.rho = case.flow.rho

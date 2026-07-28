@@ -223,6 +223,34 @@ def test_airfoil_rejects_bad_overshoot_mode():
         Airfoil(vortex_overshoot_mode="nonsense")
 
 
+def test_pitch_rate_factor_recovers_leishman_at_quarter_chord():
+    """[LN]'s alpha_3/4 = alpha + q/2 assumes pitching about the quarter chord."""
+    assert attached.pitch_rate_factor(attached.QUARTER_CHORD_AH) == pytest.approx(1.0)
+    # Dimitriadis & Li Table 1 puts the pitch axis at 0.115 m = 0.3833c,
+    # a_h = -0.2333, which shortens the arm to the 3/4-chord point.
+    f = attached.pitch_rate_factor(-0.2333)
+    assert f == pytest.approx(0.7333, abs=1e-4)
+    # Using q/2 regardless would over-predict that term by ~36%.
+    assert 1.0 / f == pytest.approx(1.364, abs=0.01)
+
+
+def test_pitch_axis_leaves_forced_pitch_unchanged():
+    """Prescribed-motion cases pitch about the quarter chord, so must not move.
+
+    Guards the default: threading a_h through the aerodynamics must be inert
+    unless a caller explicitly supplies a different pitch axis.
+    """
+    af = Airfoil()
+    x = attached.steady_state(rad(6.0), af, 0.12)
+    base = attached.evaluate(x, rad(6.0), 0.05, af, 0.12)
+    dflt = attached.evaluate(x, rad(6.0), 0.05, af, 0.12, attached.QUARTER_CHORD_AH)
+    assert np.allclose(base[0], dflt[0])
+    assert base[1:] == pytest.approx(dflt[1:])
+    # A different axis must actually change the answer.
+    moved = attached.evaluate(x, rad(6.0), 0.05, af, 0.12, -0.2333)
+    assert not np.allclose(base[0], moved[0])
+
+
 def test_config_rejects_unknown_keys(tmp_path):
     """A misspelled key must fail loudly, not silently fall back to a default."""
     p = tmp_path / "bad.yaml"
