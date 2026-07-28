@@ -332,13 +332,62 @@ Refs. [10], [11–14] and [16]. Roughly 40% of the model is by reference.
 
 | # | Missing | Paper's pointer | Impact |
 |---|---|---|---|
-| **GAP-1** | `A`, `B` matrices (Eq. 8) and the map `x̃ → (α_E, C_N^I, C_m^I, C_C^I)` | Ref. [16] DYMORE manual; Ref. [10] Leishman & Crouse 1989 | **Blocking.** 8 of 18 states undefined. |
+| ~~**GAP-1**~~ | ~~`A`, `B` matrices (Eq. 8)~~ | **CLOSED** — see §9.1 | ✅ resolved |
 | **GAP-2** | `σ₁` (Eq. 12) and `α₁ₙ` (Eqs. 12, 16) | Ref. [16] | **Blocking.** Controls separation dynamics. |
 | **GAP-3** | `c_v` and `σ₂` (Eq. 15) | Ref. [16] | **Blocking.** Controls vortex lift. |
 | **GAP-4** | `C_N^f`, `C_m^f`, `C_C^f` as functions of `x10`/`x13` | stated only as "linear function of `x10`" | **Blocking.** Separated-flow airloads. |
 | **GAP-5** | `x11` reset logic at stall onset | not stated | **Blocking.** Eq. (14) is incomplete without it. |
 | **GAP-6** | Newmark average-velocity state-space integrator | Ref. [15] Kim & Lee 2005 | Non-blocking — see §11. |
 | **GAP-7** | `S` (or `x_θ`), `a_h`, `ρ`, and structural ICs for the flutter case | not given | **Blocking for §10.3** only. |
+
+### 9.1 GAP-1: CLOSED
+
+Source: **Leishman J.G., Nguyen K.Q., "State-Space Representation of Unsteady Airfoil
+Behavior," *AIAA Journal* 28(5), 1990, 836–844.** Its state numbering `x1…x8` matches this
+paper's exactly, and its `A` is **diagonal** — which is what lets Eq. (8) be written with
+constant matrices.
+
+| state | driven by | role |
+|---|---|---|
+| `x1`, `x2` | `α_{3/4} = α + q/2` | circulatory (Wagner, 2-pole) |
+| `x3` | `α` | non-circulatory normal force |
+| `x4` | `q` | non-circulatory normal force |
+| `x5`, `x6` | `α` | non-circulatory moment |
+| `x7` | `q` | circulatory moment |
+| `x8` | `q` | non-circulatory moment |
+
+Their Eq. (17): `ẋ₁ = (2V/c)β²(−b₁)x₁ + α_{3/4}`, output `C_N^C = (2π/β)(2V/c)β²[A₁b₁ A₂b₂]x`.
+Note `B` carries **no** `2V/c` factor, so the raw states are dimensional; we integrate the
+scaled states `x̂ = x·(2V/c)`, which makes every equation velocity-independent in `s`.
+
+Non-circulatory time constants (their Eqs. A2, A6, A12), all with `T_I = c/a`:
+
+```
+K_α  = [(1−M) + πβM²(A₁b₁+A₂b₂)]⁻¹
+K_q  = [(1−M) + 2πβM²(A₁b₁+A₂b₂)]⁻¹
+K_αM = (A₃b₄ + A₄b₃) / (b₃b₄(1−M))       A₃=1.5, A₄=−0.5, b₃=0.25, b₄=0.1
+K_qM = 7 / [15(1−M) + 3πβM²b₅]           b₅=0.5
+```
+
+> **⚠ Trap:** their closing remark states the non-circulatory constants "were reduced by 25%
+> from their theoretical values." So **0.75 is a multiplier on `K(M)`, not the value of `K`**.
+> Reading it as the value gives `K_α = 0.75` where the correct figure at Ma = 0.12 is
+> `0.75 × 1.113 = 0.835`.
+
+Circulatory constants confirmed as `A₁=0.3, A₂=0.7, b₁=0.14, b₂=0.53` (Beddoes), with
+`A₁+A₂ = 1` so `φ(0) = 0` — the *compressible* convention, where the non-circulatory term
+supplies the initial load. This differs from Jones/Wagner (`A₁=0.165, A₂=0.335`, `φ(0) = 0.5`),
+which is why their Eq. (10) carries an extra `0.5α_{3/4}` term and Eq. (18) does not.
+
+**Consequence — the model is stiff.** With the correct constants the state time constants at
+Ma = 0.12 span `τ = 0.020` (x6) to `7.25` (x1) semi-chords, a **stiffness ratio of ~354**.
+Explicit RK4 then needs `Δs < 2.78τ_min = 0.057`, i.e. **> 891 steps/cycle** at `k = 0.124`.
+This is the concrete reason the source paper reports explicit integration as unstable and
+adopts implicit Newmark (Ref. [15]) — §11 is not a stylistic preference.
+
+**Empirical result:** closing GAP-1 changed the §10.1 validation by <0.2% (`C_N` peak
+1.917 → 1.920). The attached-flow model is therefore **not** the source of the remaining
+magnitude error; that lies in GAP-3/GAP-4 (the vortex and separated-flow loads).
 
 ### Canonical forms to verify against Refs. [10]/[16]
 

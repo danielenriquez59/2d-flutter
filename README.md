@@ -41,11 +41,17 @@ The paper's own contribution does work: the modified criterion (Eq. 17) delays s
 **α = 19.3°** (baseline Eq. 13) to **α = 21.6°** — a 2.25° delay, which is exactly the "stall
 onset predicted too early" defect it set out to fix.
 
-The magnitude shortfall is expected and is traced to the **unclosed gaps** — roughly 40% of the
-model is deferred by the paper to its references, and those pieces are currently canonical
-Leishman–Beddoes reconstructions rather than the paper's actual definitions. See
-[`docs/theory.md`](docs/theory.md) §9. The dominant suspect is the vortex-lift path
-(GAP-3, `c_v`) and the additive-vs-replacement ambiguity in Eq. (18).
+**GAP-1 is now closed** from Leishman & Nguyen, *AIAA J.* 28(5) 1990 — the full 8-state
+attached-flow `A`/`B`/`C`/`D` matrices and the Mach-dependent non-circulatory time constants.
+Closing it changed the validation by <0.2%, which usefully **rules the attached-flow model out**
+as the source of the magnitude error and localizes it to the vortex and separated-flow loads
+(GAP-3 `c_v`, GAP-4, and the additive-vs-replacement ambiguity in Eq. 18).
+See [`docs/theory.md`](docs/theory.md) §9.
+
+Correct constants also make the system **stiff** (ratio ~354; fastest state τ = 0.020
+semi-chords), so explicit RK4 needs >891 steps/cycle here. The driver raises with the required
+step count rather than returning a silently diverged run. This is precisely why the paper uses
+implicit Newmark.
 
 ## Layout
 

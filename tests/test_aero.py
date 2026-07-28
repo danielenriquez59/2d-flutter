@@ -76,13 +76,56 @@ def test_alpha_effective_reaches_alpha_in_steady_state(af):
     ds_step = 0.01
     for _ in range(200_000):
         x += attached.derivatives(x, alpha, 0.0, af, mach) * ds_step
-    assert attached.alpha_effective(x) == pytest.approx(alpha, rel=1e-4)
+    assert attached.alpha_effective(x, af, mach) == pytest.approx(alpha, rel=1e-4)
+
+
+def test_steady_state_is_a_fixed_point(af):
+    """attached.steady_state must actually have zero rate, not merely be close."""
+    mach, alpha = 0.12, rad(8.0)
+    x = attached.steady_state(alpha, af, mach)
+    assert np.allclose(attached.derivatives(x, alpha, 0.0, af, mach), 0.0, atol=1e-12)
+    assert attached.alpha_effective(x, af, mach) == pytest.approx(alpha, rel=1e-12)
 
 
 def test_indicial_response_starts_at_zero(af):
     """phi(0) = 1 - A1 - A2 = 0: no circulatory lift at the instant of a step."""
     assert af.A1 + af.A2 == pytest.approx(1.0)
-    assert attached.alpha_effective(np.zeros(8)) == pytest.approx(0.0)
+    assert attached.alpha_effective(np.zeros(8), af, 0.12) == pytest.approx(0.0)
+
+
+def test_lift_curve_slope_matches_compressible_theory(af):
+    """The state scaling must reproduce C_N^C = (2*pi/beta)*alpha in steady flow.
+
+    Guards the xhat = x*(2V/c) rescaling of Leishman & Nguyen Eq. (17), where
+    B carries no 2V/c factor and the raw states are dimensional.
+    """
+    mach, alpha = 0.12, rad(3.0)
+    x = attached.steady_state(alpha, af, mach)
+    # alpha_E -> alpha, so C_N^C/alpha recovers whatever slope is applied.
+    slope = attached.circulatory_normal_force(x, af, mach) / alpha
+    assert slope == pytest.approx(af.c_n_alpha_rad, rel=1e-9)
+    # And the theoretical compressible value is within 3% of the airfoil's.
+    assert abs(slope - 2 * np.pi / attached.beta(mach)) / slope < 0.03
+
+
+def test_impulsive_loads_vanish_in_steady_flow(af):
+    """Added-mass terms must contribute nothing when nothing is accelerating."""
+    mach, alpha = 0.12, rad(8.0)
+    x = attached.steady_state(alpha, af, mach)
+    c_n_i, _ = attached.impulsive_loads(x, alpha, 0.0, af, mach)
+    assert c_n_i == pytest.approx(0.0, abs=1e-10)
+
+
+def test_k_constants_carry_the_25_percent_reduction(af):
+    """Leishman & Nguyen reduce the theoretical K by 25% to match test data."""
+    k_a, k_q, k_am, k_qm = attached._k_constants(0.12)
+    # Theoretical K_alpha at M=0.12, their Eq. (A2) numerator inverted.
+    sum_ab = 0.3 * 0.14 + 0.7 * 0.53
+    bta = attached.beta(0.12)
+    theo = 1.0 / ((1.0 - 0.12) + np.pi * bta * 0.12**2 * sum_ab)
+    assert k_a == pytest.approx(0.75 * theo, rel=1e-12)
+    # K_q relaxes faster than K_alpha (2*pi vs pi in the denominator).
+    assert k_q < k_a
 
 
 # --- the paper's contribution, Eq. (17) --------------------------------
@@ -124,7 +167,7 @@ def test_forced_pitch_runs_and_stays_finite():
 
     case = Case.from_yaml("models/cases/naca0012_forced_pitch.yaml")
     case.forced_pitch.n_cycles = 2
-    case.forced_pitch.steps_per_cycle = 400
+    case.forced_pitch.steps_per_cycle = 1200
     r = run(case).last_cycle()
 
     assert np.all(np.isfinite(r.c_n))

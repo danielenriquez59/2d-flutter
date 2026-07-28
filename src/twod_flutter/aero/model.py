@@ -66,16 +66,7 @@ class LBModel:
         forced-pitch run.
         """
         x = np.zeros(N_AERO)
-        # Circulatory lag states settle at -A_i * alpha (see attached.py).
-        x[0] = -self.af.A1 * alpha0
-        x[1] = -self.af.A2 * alpha0
-        x[2] = 0.0
-        x[3] = 0.0
-        # Impulsive states track their input exactly in steady flow.
-        x[4] = alpha0
-        x[5] = 0.0
-        x[6] = alpha0
-        x[7] = 0.0
+        x[:8] = attached.steady_state(alpha0, self.af, self.mach)
         # Pressure lag settles at the steady potential load.
         c_n_steady = self.af.c_n_alpha_rad * alpha0
         x[I_X9] = c_n_steady
@@ -102,7 +93,7 @@ class LBModel:
         # -- attached flow, x1..x8 ---------------------------------------
         dx[:8] = attached.derivatives(x[:8], alpha, q, af, self.mach)
 
-        alpha_e = attached.alpha_effective(x[:8])
+        alpha_e = attached.alpha_effective(x[:8], af, self.mach)
         c_n_circ = af.c_n_alpha_rad * alpha_e
         c_n_pot = attached.potential_normal_force(x[:8], alpha, q, af, self.mach)
 
@@ -118,7 +109,10 @@ class LBModel:
         dx[I_X11] = 1.0
 
         # -- x12: vortex-induced normal force -----------------------------
-        dc_n_circ_ds = af.c_n_alpha_rad * (-(dx[0] + dx[1] + dx[2] + dx[3]))
+        # d(alpha_E)/ds follows from alpha_E = beta^2*(A1*b1*x1 + A2*b2*x2).
+        bsq = attached.beta(self.mach) ** 2
+        dalpha_e_ds = bsq * (af.A1 * af.b1 * dx[0] + af.A2 * af.b2 * dx[1])
+        dc_n_circ_ds = af.c_n_alpha_rad * dalpha_e_ds
         cv_dot = ds.vortex_feed_rate(
             c_n_circ, dc_n_circ_ds, x[I_X10], dx[I_X10]
         )
@@ -156,8 +150,8 @@ class LBModel:
         """Assemble the airload coefficients, Eqs. (2)-(7)."""
         af = self.af
 
-        alpha_e = attached.alpha_effective(x[:8])
-        c_n_i, c_m_i = attached.impulsive_loads(x[:8], alpha, q, self.mach)
+        alpha_e = attached.alpha_effective(x[:8], af, self.mach)
+        c_n_i, c_m_i = attached.impulsive_loads(x[:8], alpha, q, af, self.mach)
         c_n_pot = attached.potential_normal_force(x[:8], alpha, q, af, self.mach)
 
         f_delayed = float(np.clip(x[I_X10], 0.0, 1.0))

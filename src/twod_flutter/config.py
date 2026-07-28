@@ -98,18 +98,15 @@ class Airfoil:
     # alpha_1n is described only as "the function of x10". Default: constant.
     alpha1n_droop: float = 0.0
 
-    # --- GAP-1 / GAP-4: canonical LB forms, NOT from this paper ---------
-    # Wagner two-exponential indicial approximation.
+    # --- GAP-1 CLOSED: Leishman & Nguyen, AIAA J. 28(5) 1990 ------------
+    # Circulatory indicial constants (their p. 839, from Beddoes).
+    # The remaining non-circulatory constants K_alpha, K_q, K_alphaM, K_qM are
+    # Mach-dependent functions, not free parameters -- see aero/attached.py.
     A1: float = 0.3
     A2: float = 0.7
     b1: float = 0.14
     b2: float = 0.53
-    # Impulsive (added-mass) deficiency time-constant factors.
-    K_alpha: float = 0.75
-    K_q: float = 0.75
-    K_M: float = 0.75
-    K_Mq: float = 0.75
-    # Separated-flow airload shapes.
+    # --- GAP-4 still open: separated-flow airload shapes -----------------
     eta: float = 0.95  # chord-force efficiency
     K0: float = 0.0  # aerodynamic-centre offset at f=1
     K1: float = -0.135  # centre-of-pressure travel with separation

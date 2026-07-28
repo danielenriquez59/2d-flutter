@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..aero import LBModel
+from ..aero import attached
 from ..config import Case
 from ..integrators import get_integrator
 from ..units import RAD2DEG, rad
@@ -91,6 +92,22 @@ def run(case: Case, integrator: str = "rk4") -> ForcedPitchResult:
 
     model = LBModel(af, mach)
     step = get_integrator(integrator)
+
+    # RK4 is explicit, and the non-circulatory moment states are fast enough to
+    # set a hard step limit (see attached.time_constants). Failing here with a
+    # number beats returning a silently diverged run.
+    if integrator == "rk4":
+        tau_min = attached.min_time_constant(af, mach)
+        ds = (2.0 * np.pi / fp.k) / fp.steps_per_cycle  # step in semi-chords
+        limit = 2.78 * tau_min  # RK4 real-axis stability boundary
+        if ds > limit:
+            needed = int(np.ceil((2.0 * np.pi / fp.k) / limit))
+            raise ValueError(
+                f"steps_per_cycle={fp.steps_per_cycle} is too coarse for rk4: "
+                f"step {ds:.4f} exceeds the stability limit {limit:.4f} "
+                f"semi-chords (fastest state tau = {tau_min:.4f}). "
+                f"Use steps_per_cycle >= {needed}, or integrator='newmark'."
+            )
 
     def rhs(t: float, x: np.ndarray) -> np.ndarray:
         alpha = alpha_of(t)

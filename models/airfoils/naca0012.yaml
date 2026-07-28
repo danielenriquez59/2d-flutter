@@ -32,15 +32,17 @@ sigma2_base: 1.0
 sigma2_after_vortex: 1.0
 alpha1n_droop: 0.0
 
-# --- [GAP-1/4] canonical Leishman-Beddoes forms ------------------------
-A1: 0.3               # Wagner indicial approximation
+# --- [GAP-1 CLOSED] Leishman & Nguyen, AIAA J. 28(5) 1990 --------------
+# Circulatory indicial constants (their p. 839, attributed to Beddoes).
+# The non-circulatory constants K_alpha, K_q, K_alphaM, K_qM are Mach-dependent
+# functions given by their Eqs. (A2), (A6), (A12) -- not free parameters, so
+# they live in aero/attached.py rather than here.
+A1: 0.3
 A2: 0.7
 b1: 0.14
 b2: 0.53
-K_alpha: 0.75         # impulsive time-constant factors
-K_q: 0.75
-K_M: 0.75
-K_Mq: 0.75
+
+# --- [GAP-4] separated-flow shapes, still canonical guesses -------------
 eta: 0.95             # chord-force efficiency
 K0: 0.0               # aerodynamic-centre offset at f = 1
 K1: -0.135            # centre-of-pressure travel with separation
