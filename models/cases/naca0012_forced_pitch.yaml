@@ -1,0 +1,36 @@
+# Validation case -- theory.md §10.1, paper Figs. 3-4.
+#
+# NACA0012 in forced sinusoidal pitch at low Mach. This is the first
+# validation gate for the aerodynamic model.
+
+name: naca0012_forced_pitch
+kind: forced_pitch
+
+airfoil: models/airfoils/naca0012.yaml
+
+flow:
+  mach: 0.12
+  sound_speed: 340.0
+  rho: 1.225
+
+forced_pitch:
+  alpha_mean_deg: 15.0
+  alpha_amp_deg: 10.0
+  k: 0.124              # reduced frequency, k = omega*b/V
+  n_cycles: 6
+  steps_per_cycle: 2000
+
+reference:
+  chord: 0.55           # m
+  source: "Shao et al. 2011, Figs. 3-4; experiment from Ref. [14] (Galbraith)"
+  # Qualitative features to reproduce, read off the paper's figures.
+  c_n_peak: 2.55        # near alpha ~ 24-25 deg
+  c_n_after_drop: 1.2
+  c_m_min: -0.62        # near alpha ~ 25 deg
+  c_m_break_deg: 22.0   # C_m stays near zero until about here
+
+notes: >
+  The paper notes its own known defect on this case: predicted C_N is
+  "a little higher than experimental data at the low angle of attack of flow
+  reattachment phase". Do not chase that discrepancy.
+  The k convention is not stated in the paper; k = omega*b/V is assumed.

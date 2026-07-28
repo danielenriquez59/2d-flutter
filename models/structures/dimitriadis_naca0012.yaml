@@ -1,0 +1,27 @@
+# Elastic mount for the NACA0012 stall-flutter experiment.
+#
+# Parameters from Shao et al. 2011 §5.2, which takes the experiment from
+# Ref. [3] (Dimitriadis & Li). See theory.md §10.3.
+
+name: dimitriadis_naca0012
+
+chord: 0.3            # m          [paper]
+mass: 16.67           # kg/m       [paper]
+I_theta: 0.31         # kg*m^2/m   [paper, printed as "kg/m2" -- see theory.md §14.5]
+K_h: 30.5e3           # N/m        [paper, given as 30.5 N/mm]
+K_theta: 13.1         # N*m/rad    [paper]
+
+# Elastic axis at the quarter chord, implied by I_theta being defined about
+# 1/4 chord: a_h = -0.5 semi-chords from mid-chord.
+a_h: -0.5
+
+# --- GAP-7: NOT given by the paper -------------------------------------
+# The static mass moment S (equivalently the mass-centre offset x_theta) is
+# never stated, and the flutter result depends on it. Must be recovered from
+# Ref. [3]. x_theta = 0 puts the mass centre on the elastic axis, which
+# decouples the inertial terms -- almost certainly NOT what the experiment had.
+x_theta: 0.0
+
+# The paper reports no structural damping; all dissipation is aerodynamic.
+C_h: 0.0
+C_theta: 0.0
