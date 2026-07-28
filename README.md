@@ -98,42 +98,31 @@ an LCO below 18 m/s), the transition at the divergence speed, and a static offse
 amplitude error is very likely inherited from §10.1, where `C_m` is 48% low; `C_m` *is* the pitch
 damping that sets LCO amplitude.
 
-### Audit: the missing physics is the rig's mean angle of attack
+### The primary source resolves most of it
 
-Re-checking the implementation against the source ([`docs/theory.md`](docs/theory.md) §10.3.2),
-the aerodynamics is sound and the structural side matches Fig. 2 and Eqs. (21)–(25). The blocking
-gap is elsewhere.
+Ref. [3] (Dimitriadis & Li, *AIAA J.* 47(11), 2009) settles the structural questions and
+**refutes** one hypothesis. Details in [`docs/theory.md`](docs/theory.md) §10.3.2.
 
-**Eq. (25) is `α = θ + ḣ/V` — there is no mean-incidence term**, so the equilibrium sits at
-α ≈ 0. But stall flutter is a torsional instability driven by *negative pitch damping*, which
-exists only near stall. At α ≈ 0 the flow is fully attached and no oscillatory instability is
-possible.
+- **The elastic-axis derivation was right.** Table 1 puts the pitch axis at 0.115 m = 0.3833c
+  (`a_h = −0.2333`); our value inferred from the divergence balance was −0.2548, **within 3%**.
+- **Divergence now matches.** With Table 1's per-span properties, linear theory gives **17.89 m/s**;
+  the experiment's asymmetric-LCO onset is at **17.8 m/s**, and the paper states explicitly that
+  this bifurcation occurs *at the static divergence airspeed*.
+- **Units inconsistency in Shao.** Table 1 is total-for-0.9 m-span; Shao converts the mass to
+  per-span but leaves `I_θ`, `K_h`, `K_θ` total. Correcting all four raises `ω_h` 6.81 → 7.18 Hz.
+- **Two confirmations of our structural model.** The source says the response is "single mode"
+  because plunge is far stiffer than pitch — our ratio is 6.9 — and the rig was built
+  "without friction", so near-zero structural damping is by design.
+- **The mean-incidence hypothesis is refuted.** The source states the equilibrium is at zero
+  pitch and loses stability at 13 m/s.
 
-The mechanism **is** in our implementation. Linearising at V = 13 m/s about a range of mean
-incidences:
+The experiment's sequence is fold at 12.2, subcritical Hopf at 13.0, divergence-driven asymmetric
+LCO at 17.8. We reproduce the divergence bifurcation, put the fold ~2 m/s low, and miss the Hopf.
 
-| mean α₀ | max Re (oscillatory) | f (Hz) |
-|---|---|---|
-| 0–12° | −0.18 | 6.80 (plunge) |
-| **14°** | **+2.87** | **1.59 (torsion)** |
-| **16°** | **+1.06** | **1.46** |
-| **20°** | **+0.01** | **1.08** |
-| 25° | −0.07 | 6.79 |
-
-Between ~13° and 20° the torsion mode goes unstable at 1.1–1.6 Hz — stall flutter, a genuine
-Hopf. The band brackets the static stall angle `α₁ = 15.25°`, exactly as the physics requires. So
-the mechanism behaves correctly; it simply cannot engage at the equilibrium Eq. (25) defines.
-
-Two further findings: **`x_θ` is not the answer** — sweeping it 0→0.5 leaves onset unchanged at
-18.0 m/s, because divergence is inertia-independent and the 6.6 frequency ratio closes the
-classical coalescence route. And **zero structural damping makes onset degenerate** — with
-nothing to overcome, any negative aerodynamic damping destabilises at any speed, which is likely
-why the paper reports a specific 12 m/s where we get none.
-
-Ranked by leverage: (1) mean angle of attack — blocks the Hopf entirely; (2) the `C_m` 48%
-shortfall from §9.3; (3) structural damping; (4) `x_θ`, `ρ`. Items 1, 3 and 4 all point at
-**Ref. [3] (Dimitriadis & Li)**, the source of the experiment and therefore of the rig
-configuration.
+**The missing Hopf is very likely the §9.3 defect.** Pitch damping near the torsional mode is
+small and marginally negative; whether it crosses zero at 13 m/s depends on the magnitude of the
+unsteady pitching moment — and our `C_m` is 48% low. That one error plausibly explains both the
+absent Hopf and the over-large LCO amplitudes.
 
 ### Limitations
 

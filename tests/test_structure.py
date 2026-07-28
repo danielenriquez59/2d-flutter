@@ -31,7 +31,7 @@ def test_uncoupled_frequencies(struct):
     wh, wt = sm.uncoupled_frequencies
     assert wh == pytest.approx(np.sqrt(struct.K_h / struct.mass))
     assert wt == pytest.approx(np.sqrt(struct.K_theta / struct.I_theta))
-    # The two modes are far apart (ratio ~6.6), so they cannot coalesce and
+    # The two modes are far apart (ratio ~6.9), so they cannot coalesce and
     # classical bending-torsion flutter is impossible for this rig.
     assert wh / wt > 5.0
 
@@ -71,11 +71,23 @@ def test_quarter_chord_axis_cannot_diverge(struct):
     assert q_t == pytest.approx(0.5 * 1.225 * 100.0 * 0.3**2 * 0.05)
 
 
-def test_divergence_velocity_matches_reference(struct):
-    """a_h is calibrated so linear divergence lands on Ref. [3]'s 17.7 m/s."""
+def test_pitch_axis_matches_primary_source(struct):
+    """Table 1 of Dimitriadis & Li puts the pitch axis 0.115 m behind the LE."""
+    x_ea = 0.5 * struct.chord + struct.a_h * struct.b
+    assert x_ea == pytest.approx(0.115, abs=1e-4)
+
+
+def test_divergence_velocity_matches_experiment(struct):
+    """Divergence must land on the experiment's asymmetric-LCO onset.
+
+    Dimitriadis & Li report the second bifurcation -- onto asymmetric LCOs --
+    occurring *at the system's static divergence airspeed*, with the first
+    positive-pitch asymmetric LCOs at 17.8 m/s. With Table 1's pitch axis and
+    per-span structural properties, linear theory gives 17.89 m/s.
+    """
     sm = StructuralModel(struct)
     assert sm.ac_to_ea > 0.0
-    assert sm.divergence_velocity(6.1879, 1.225) == pytest.approx(17.7, abs=0.05)
+    assert sm.divergence_velocity(6.1879, 1.225) == pytest.approx(17.8, abs=0.2)
 
 
 def test_coupled_system_linearises_to_divergence_at_reference_speed():
@@ -103,7 +115,7 @@ def test_coupled_system_linearises_to_divergence_at_reference_speed():
         ev = np.linalg.eigvals(J[np.ix_(keep, keep)])
         return ev[int(np.argmax(ev.real))]
 
-    assert max_eig(17.0).real < 0.0, "stable below the divergence speed"
+    assert max_eig(17.5).real < 0.0, "stable below the divergence speed"
     unstable = max_eig(18.0)
     assert unstable.real > 0.0, "unstable above it"
     assert abs(unstable.imag) < 1e-3, "the unstable mode is real: divergence, not Hopf"
