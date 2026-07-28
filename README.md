@@ -29,8 +29,8 @@ The paper is not self-contained; two further sources are required to implement i
 | **Validation §10.0 (LB core vs [CH] Fig. 2.9)** | ✅ **passing, within 3–5%** |
 | Validation §10.1 (NACA0012 forced pitch, Figs. 3–4) | ⚠️ shape right, magnitude low — see below |
 | Validation §10.2 (OA207 forced pitch) | ⬜ not started |
-| 4-state structural model + coupling | ⬜ not started |
-| Validation §10.3 (flutter bifurcation) | ⬜ not started |
+| 4-state structural model + coupling | ✅ complete (18-state system) |
+| Validation §10.3 (flutter bifurcation) | ⚠️ structure reproduced, numbers not — see below |
 
 ### The LB core is verified
 
@@ -75,8 +75,31 @@ tested and **eliminated**:
 So the residual is specific to this paper's low-Mach modification at deep-stall amplitude.
 Remaining untested suspects are listed in [`docs/theory.md`](docs/theory.md) §9.3.
 
-One item is still to source, and it blocks the flutter validation (§10.3) only: the structural
-static mass moment `S` and density `ρ`, which must come from Ref. [3] (Dimitriadis & Li).
+### Flutter: Eq. (24) is incomplete, and there is no Hopf
+
+Two findings from the coupled system (details in [`docs/theory.md`](docs/theory.md) §10.3):
+
+**Eq. (24) is missing a term, and the paper's own numbers prove it.** `I_θ` is defined about the
+quarter chord, implying the elastic axis is there — but that puts the elastic axis directly under
+the lift, giving zero moment arm and an *infinite* divergence speed, while the paper quotes
+17.7 m/s from its Ref. [3]. The missing lift-transfer term is `½ρV²c·C_L·d`, `d = b(a_h + 0.5)`;
+with `a_h = −0.5` it vanishes and Eq. (24) is recovered exactly. Inverting the divergence balance
+at 17.7 m/s then **recovers `a_h = −0.2548`** (elastic axis at 0.373c) — turning a number the
+paper states into one of the two structural parameters it omits.
+
+**There is no Hopf bifurcation.** Linearising the 18-state system, both oscillatory modes stay
+damped — damping increasing monotonically — until a *real* eigenvalue crosses zero at 17.70 m/s.
+That is divergence, not flutter. The modes sit at 6.81 Hz and 1.02 Hz (ratio 6.6) and never
+coalesce, so classical bending–torsion flutter is impossible for this rig.
+
+The nonlinear sweep reproduces the paper's *structure* — subcriticality (1° decays, 20° sustains
+an LCO below 18 m/s), the transition at the divergence speed, and a static offset growing with V
+— but not its numbers: LCO amplitude is ~2.5× too large and no asymmetric LCO appears. The
+amplitude error is very likely inherited from §10.1, where `C_m` is 48% low; `C_m` *is* the pitch
+damping that sets LCO amplitude.
+
+Still to source: the static mass moment `S` (`x_θ` set to 0) and density `ρ` (assumed 1.225),
+both from Ref. [3].
 
 ### Limitations
 

@@ -620,7 +620,60 @@ the negative aerodynamic damping that drives it appears only once the section os
 stall, which cannot happen at the linearised equilibrium where the flow is fully attached.
 
 **The paper, however, reports a subcritical Hopf at V = 12 m/s** — an oscillatory instability
-of the equilibrium. Our model does not reproduce it. See §10.3.1 for what this means.
+of the equilibrium. Our model does not reproduce it.
+
+#### 10.3.1 Nonlinear sweep result
+
+`scripts/run_bifurcation.py`, `C_m0 = 0.010`, disturbances of 1° and 20°, 15 s per point:
+
+| V (m/s) | θ₀ = 1° | θ₀ = 20° | LCO amplitude (deg p-p) | equilibrium offset (deg) |
+|---|---|---|---|---|
+| 10 | decays | **LCO** | 107.6 | +0.36 |
+| 12 | decays | **LCO** | 102.1 | +0.65 |
+| 14 | decays | **LCO** | 94.6 | +1.31 |
+| 16 | decays | **LCO** | 89.6 | +3.81 |
+| 18 | **LCO** | **LCO** | 85.8 | — |
+| 20 | **LCO** | **LCO** | 83.4 | — |
+| 26 | **LCO** | **LCO** | 79.7 | — |
+
+**What matches.** Three qualitative features of the paper come out correctly:
+
+1. **Subcriticality is reproduced.** Below 18 m/s a 1° disturbance decays while a 20° one settles
+   onto a large-amplitude limit cycle. A stable equilibrium coexisting with a stable LCO is
+   exactly the signature of a subcritical bifurcation, and it is why a single-initial-condition
+   sweep would have found nothing.
+2. **The transition at 18 m/s** — where even a 1° disturbance grows — coincides with the
+   divergence speed of 17.7 m/s derived above. Above it the equilibrium is unstable, so every
+   trajectory departs.
+3. **The static offset grows with velocity and blows up at divergence**: +0.36° at V = 10 rising
+   to +3.81° at V = 16, consistent with `C_m0 = 0.010` acting against a pitch stiffness that the
+   aerodynamics is progressively cancelling.
+
+**What does not match.**
+
+| | Paper | Model |
+|---|---|---|
+| Symmetric LCO onset | 12 m/s (Hopf) | ≤ 10 m/s, no Hopf |
+| Mechanism of onset | subcritical Hopf, dynamic stall | finite-amplitude only; divergence at 17.7 |
+| Asymmetric LCO onset (`C_m0`=0.010) | 18.4 m/s | not observed |
+| LCO amplitude | ~40° p-p (Fig. 10) | 80–108° p-p |
+
+**Amplitude is over-predicted by roughly 2.5×, and this is very likely inherited from §10.1.**
+The pitching moment there is 48% low — a larger relative error than `C_N`. `C_m` *is* the pitch
+damping: LCO amplitude is set by where positive and negative aerodynamic work over the cycle
+balance, so under-predicting the restoring moment lets the cycle grow further before it closes.
+An amplitude error of this size is the expected consequence, which makes the flutter result a
+*downstream* symptom of the unresolved §9.3 discrepancy rather than an independent defect.
+
+The absent asymmetric LCO is plausibly the same thing: our offset is ~1–2° on an 80–108° cycle,
+a ratio of 0.02. If the amplitude were correct at ~40°, the same offset would be a far larger
+fraction and might well cross into the asymmetric classification.
+
+**Reading the amplitude with caution.** At 80–108° peak-to-peak the section reaches |α| ≈ 40–54°,
+deep in the asymptotic tail of the Kirchhoff correlation (`f → 0.04`) and close to its ~60°
+validity limit (§15.5). Those excursions are inside the letter of the model's range but well
+outside where its constants were fitted, so the amplitudes should be read as "large" rather than
+as quantitative predictions.
 
 **Target — reproduce Table 1:**
 
