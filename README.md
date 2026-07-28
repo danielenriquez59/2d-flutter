@@ -33,20 +33,25 @@ under-predicts magnitude:
 
 | Quantity | Paper | Model | |
 |---|---|---|---|
-| `C_N` peak | 2.55 | 1.92 | −25% |
-| `C_m` min | −0.62 | −0.35 | −44% |
-| `C_N` peak location | α ≈ 24–25° | α ≈ 24.1° | ✅ |
+| `C_N` peak | 2.55 | 1.78 | −30% |
+| `C_m` min | −0.62 | −0.32 | −48% |
+| `C_N` peak location | α ≈ 24–25° | α ≈ 24.2° | ✅ |
 
 The paper's own contribution does work: the modified criterion (Eq. 17) delays stall onset from
 **α = 19.3°** (baseline Eq. 13) to **α = 21.6°** — a 2.25° delay, which is exactly the "stall
 onset predicted too early" defect it set out to fix.
 
-**GAP-1 is now closed** from Leishman & Nguyen, *AIAA J.* 28(5) 1990 — the full 8-state
-attached-flow `A`/`B`/`C`/`D` matrices and the Mach-dependent non-circulatory time constants.
-Closing it changed the validation by <0.2%, which usefully **rules the attached-flow model out**
-as the source of the magnitude error and localizes it to the vortex and separated-flow loads
-(GAP-3 `c_v`, GAP-4, and the additive-vs-replacement ambiguity in Eq. 18).
-See [`docs/theory.md`](docs/theory.md) §9.
+**GAP-1 through GAP-5 are now closed**, from Leishman & Nguyen (*AIAA J.* 28(5) 1990) for the
+attached-flow state space and Chantharasenawong (PhD thesis, Imperial College 2007 — the paper's
+own Ref. [17]) for the separated-flow airloads, the `σ₁`/`σ₂` switch tables, `α₁ₙ`, `c_v`, and the
+vortex-clock reset. The thesis's M = 0.30 constant column **is** Shao's constant set, which
+independently confirms the transcription. See [`docs/theory.md`](docs/theory.md) §9.1–9.2.
+
+The model is now faithful to the documented LB formulation, and the residual error is
+**localized and structural**: the vortex path is short by ~2.5×, and a `B₁` sweep shows the gap
+is *not* reachable by calibration (`B₁ = 5` gets `C_N` to only 2.24 and drives `C_m` the wrong
+way). The open question is now narrow — how Eq. (18) combines with the `x12` vortex state, which
+the paper never states. See §9.3.
 
 Correct constants also make the system **stiff** (ratio ~354; fastest state τ = 0.020
 semi-chords), so explicit RK4 needs >891 steps/cycle here. The driver raises with the required

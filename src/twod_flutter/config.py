@@ -85,18 +85,11 @@ class Airfoil:
     B2: float = 0.2  # C_m overshoot magnitude (Eq. 20)
     C_m0: float = 0.0  # symmetry-breaking static moment (Eq. 6)
 
-    # --- GAP-2 / GAP-3: undefined in the paper --------------------------
-    # sigma1 and sigma2 scale T_f and T_v. In Beddoes' formulation these are
-    # *switches* keyed on separating-vs-reattaching and stalled-vs-not, not
-    # scalars. Defaults of 1.0 disable the switching entirely, which is the
-    # most conservative reading. See theory.md §9.
-    sigma1_base: float = 1.0
-    sigma1_reattach: float = 1.0
-    sigma1_stalled: float = 1.0
-    sigma2_base: float = 1.0
-    sigma2_after_vortex: float = 1.0
-    # alpha_1n is described only as "the function of x10". Default: constant.
-    alpha1n_droop: float = 0.0
+    # --- GAP-2 / GAP-3 CLOSED: Chantharasenawong (2007) -----------------
+    # sigma1 and sigma2 are switch TABLES (his Tables 2.3, 2.4), implemented in
+    # aero/separation.py and aero/dynamic_stall.py -- not free parameters.
+    # The one genuine constant they need is the break-angle droop:
+    delta_alpha1_deg: float = 2.103  # his Table 2.1 at M=0.30: 0.0367 rad
 
     # --- GAP-1 CLOSED: Leishman & Nguyen, AIAA J. 28(5) 1990 ------------
     # Circulatory indicial constants (their p. 839, from Beddoes).
@@ -107,8 +100,8 @@ class Airfoil:
     b1: float = 0.14
     b2: float = 0.53
     # --- GAP-4 still open: separated-flow airload shapes -----------------
-    eta: float = 0.95  # chord-force efficiency
-    K0: float = 0.0  # aerodynamic-centre offset at f=1
+    eta: float = 0.97  # chord-force recovery factor
+    K0: float = 0.0025  # aerodynamic-centre offset at f=1
     K1: float = -0.135  # centre-of-pressure travel with separation
     K2: float = 0.04  # break shape near stall
     m_exp: float = 2.0  # exponent in the K2 sin() term

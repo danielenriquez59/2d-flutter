@@ -100,10 +100,21 @@ class LBModel:
         # -- x9: leading-edge pressure lag --------------------------------
         dx[I_X9] = sep.pressure_lag_derivative(x[I_X9], c_n_pot, af)
 
+        # Loading direction, alpha * d(alpha)/ds: >= 0 loading up, < 0 unloading.
+        # This is the switch variable for the T_f, T_v and alpha_1 tables
+        # (Chantharasenawong 2007, Tables 2.3-2.4 and Eq. 2.54).
+        loading = alpha * dalpha_ds
+
+        # "Shedding" selects the vortex-shedding branch of those tables. The
+        # thesis keys it on |x9| >= C_N1; we use the paper's modified low-Mach
+        # criterion on x14 instead, since that is what Eq. (17) replaces it with.
+        shedding = ds.is_stalled(x[I_X14], af)
+
         # -- x10: delayed separation point --------------------------------
-        stalled = ds.is_stalled(x[I_X14], af)
-        s1 = sep.sigma1(alpha, dalpha_ds, stalled, af)
-        dx[I_X10] = sep.separation_point_derivative(x[I_X9], x[I_X10], s1, af)
+        s1 = sep.sigma1(loading, x[I_X10], x[I_X11], shedding, af)
+        dx[I_X10] = sep.separation_point_derivative(
+            x[I_X9], x[I_X10], s1, loading, af
+        )
 
         # -- x11: vortex clock. Reset is a discrete event, see step_events.
         dx[I_X11] = 1.0
@@ -116,13 +127,13 @@ class LBModel:
         cv_dot = ds.vortex_feed_rate(
             c_n_circ, dc_n_circ_ds, x[I_X10], dx[I_X10]
         )
-        s2 = af.sigma2_base
+        s2 = ds.sigma2(loading, x[I_X11], shedding, af)
         dx[I_X12] = ds.vortex_normal_force_derivative(
             x[I_X11], x[I_X12], alpha, cv_dot, s2, af
         )
 
         # -- x13: reattachment separation point ---------------------------
-        dx[I_X13] = sep.reattachment_derivative(x[I_X13], alpha, af)
+        dx[I_X13] = sep.reattachment_derivative(x[I_X13], alpha, loading, af)
 
         # -- x14: low-Mach onset lag --------------------------------------
         dx[I_X14] = ds.onset_lag_derivative(x[I_X9], x[I_X14], af)
@@ -155,7 +166,7 @@ class LBModel:
         c_n_pot = attached.potential_normal_force(x[:8], alpha, q, af, self.mach)
 
         f_delayed = float(np.clip(x[I_X10], 0.0, 1.0))
-        f_static = sep.kirchhoff_f(alpha, af.alpha1_deg, af)
+        f_static = sep.kirchhoff_f(alpha, af.alpha1_deg, af)  # static ref, Eq. (18)
 
         # Separated circulatory loads (Eqs. 5-7 superscript f).
         c_n_f = al.separated_normal_force(alpha_e, f_delayed, af)

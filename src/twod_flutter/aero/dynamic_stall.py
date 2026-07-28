@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 
 from ..config import Airfoil
-from .separation import kirchhoff_f, alpha1n
+from .separation import kirchhoff_f
 
 
 def kirchhoff_kn(f: float) -> float:
@@ -54,6 +54,31 @@ def vortex_feed_rate(
     sqrt_f = np.sqrt(f)
     d_kn_df = (1.0 + sqrt_f) / (4.0 * sqrt_f) if sqrt_f > 1e-9 else 0.0
     return (1.0 - kirchhoff_kn(f)) * dc_n_circ_ds - c_n_circ * d_kn_df * dx10_ds
+
+
+def sigma2(loading: float, tau_v: float, shedding: bool, af: Airfoil) -> float:
+    """Multiplier on the vortex time constant ``T_v`` (paper Eq. 15).
+
+    **GAP-3: CLOSED** by Chantharasenawong (2007) Table 2.4. Vortex lift decays
+    faster once the vortex has convected past the trailing edge, modelled by
+    shrinking ``T_v``:
+
+    ================  =================  ====================  ==============
+    condition         0 <= tau_v <= T_vl  T_vl < tau_v <= 2T_vl  2T_vl < tau_v
+    ================  =================  ====================  ==============
+    ``a*a' >= 0``     ``T_v0``           ``0.25 T_v0``         ``0.90 T_v0``
+    ``a*a' <  0``     ``0.50 T_v0``      ``0.50 T_v0``         ``0.90 T_v0``
+    ================  =================  ====================  ==============
+
+    Reattachment phase: ``T_v = T_v0``.
+    """
+    if not shedding:
+        return 1.0
+    if tau_v > 2.0 * af.T_vl:
+        return 0.90
+    if tau_v > af.T_vl:
+        return 0.25 if loading >= 0.0 else 0.50
+    return 1.0 if loading >= 0.0 else 0.50
 
 
 def onset_lag_derivative(x9: float, x14: float, af: Airfoil) -> float:
@@ -118,7 +143,9 @@ def normal_force_overshoot(
     Proportional to the gap between the delayed separation point ``f'' = x10``
     and its static counterpart ``f``, shaped by ``V_x``.
     """
-    f_static = kirchhoff_f(alpha, alpha1n(x10, af), af)
+    # Static reference uses the undrooped break angle: Eq. (18) compares the
+    # delayed separation point against its *steady-state* counterpart.
+    f_static = kirchhoff_f(alpha, af.alpha1_deg, af)
     return af.B1 * (x10 - f_static) * vortex_shape(x11, af)
 
 

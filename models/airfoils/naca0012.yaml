@@ -22,15 +22,11 @@ B1: 1.0               # C_N overshoot magnitude   (Eq. 18)
 B2: 0.2               # C_m overshoot magnitude   (Eq. 20)
 C_m0: 0.0             # symmetric section
 
-# --- [GAP-2/3] sigma switches, undefined in the paper ------------------
-# In Beddoes' formulation these are switches keyed on separating-vs-
-# reattaching and stalled-vs-not. 1.0 everywhere disables the switching.
-sigma1_base: 1.0
-sigma1_reattach: 1.0
-sigma1_stalled: 1.0
-sigma2_base: 1.0
-sigma2_after_vortex: 1.0
-alpha1n_droop: 0.0
+# --- [GAP-2/3 CLOSED] Chantharasenawong (2007) -------------------------
+# sigma1 and sigma2 are switch tables (his Tables 2.3, 2.4) keyed on vortex
+# time and loading direction; they live in code, not here. The only constant
+# they need is the break-angle droop used during unloading (his Eq. 2.54).
+delta_alpha1_deg: 2.103   # his Table 2.1 at M=0.30: 0.0367 rad
 
 # --- [GAP-1 CLOSED] Leishman & Nguyen, AIAA J. 28(5) 1990 --------------
 # Circulatory indicial constants (their p. 839, attributed to Beddoes).
@@ -42,9 +38,12 @@ A2: 0.7
 b1: 0.14
 b2: 0.53
 
-# --- [GAP-4] separated-flow shapes, still canonical guesses -------------
-eta: 0.95             # chord-force efficiency
-K0: 0.0               # aerodynamic-centre offset at f = 1
+# --- [GAP-4 CLOSED] Chantharasenawong (2007) Eqs. 2.7-2.9, Table 2.1 ---
+# His M=0.30 column IS Shao's constant set: C_Nalpha = 6.1879/rad = 0.108/deg,
+# alpha_10 = 0.2662 rad = 15.25 deg, S1 = 0.0524 rad = 3.0 deg, T_P = 1.7,
+# T_v0 = 6.0, T_vl = 7.0. Direct confirmation of the values above.
+eta: 0.97             # chord-force recovery factor
+K0: 0.0025            # aerodynamic-centre offset at f = 1
 K1: -0.135            # centre-of-pressure travel with separation
 K2: 0.04              # break shape near stall
 m_exp: 2.0

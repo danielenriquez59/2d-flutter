@@ -333,10 +333,10 @@ Refs. [10], [11–14] and [16]. Roughly 40% of the model is by reference.
 | # | Missing | Paper's pointer | Impact |
 |---|---|---|---|
 | ~~**GAP-1**~~ | ~~`A`, `B` matrices (Eq. 8)~~ | **CLOSED** — see §9.1 | ✅ resolved |
-| **GAP-2** | `σ₁` (Eq. 12) and `α₁ₙ` (Eqs. 12, 16) | Ref. [16] | **Blocking.** Controls separation dynamics. |
-| **GAP-3** | `c_v` and `σ₂` (Eq. 15) | Ref. [16] | **Blocking.** Controls vortex lift. |
-| **GAP-4** | `C_N^f`, `C_m^f`, `C_C^f` as functions of `x10`/`x13` | stated only as "linear function of `x10`" | **Blocking.** Separated-flow airloads. |
-| **GAP-5** | `x11` reset logic at stall onset | not stated | **Blocking.** Eq. (14) is incomplete without it. |
+| ~~**GAP-2**~~ | ~~`σ₁`, `α₁ₙ`~~ | **CLOSED** — see §9.2 | ✅ resolved |
+| ~~**GAP-3**~~ | ~~`c_v`, `σ₂`~~ | **CLOSED** — see §9.2 | ✅ resolved |
+| ~~**GAP-4**~~ | ~~`C_N^f`, `C_m^f`, `C_C^f`~~ | **CLOSED** — see §9.2 | ✅ resolved |
+| ~~**GAP-5**~~ | ~~`x11` reset logic~~ | **CLOSED** — see §9.2 | ✅ resolved |
 | **GAP-6** | Newmark average-velocity state-space integrator | Ref. [15] Kim & Lee 2005 | Non-blocking — see §11. |
 | **GAP-7** | `S` (or `x_θ`), `a_h`, `ρ`, and structural ICs for the flutter case | not given | **Blocking for §10.3** only. |
 
@@ -388,6 +388,82 @@ adopts implicit Newmark (Ref. [15]) — §11 is not a stylistic preference.
 **Empirical result:** closing GAP-1 changed the §10.1 validation by <0.2% (`C_N` peak
 1.917 → 1.920). The attached-flow model is therefore **not** the source of the remaining
 magnitude error; that lies in GAP-3/GAP-4 (the vortex and separated-flow loads).
+
+### 9.2 GAP-2, 3, 4, 5: CLOSED
+
+Source: **Chantharasenawong C., "Nonlinear aeroelastic behaviour of aerofoils under dynamic
+stall," PhD thesis, Imperial College London, 2007** — the paper's own Ref. [17], §2.4–2.5.
+
+**Cross-check first.** His Table 2.1 gives NACA0012 constants vs Mach. The **M = 0.30 column
+is exactly Shao's constant set**, with angles in radians instead of degrees:
+
+| Thesis (M=0.30) | Value | Shao |
+|---|---|---|
+| `C_Nα^S` | 6.1879 /rad | 0.108 /deg ✅ |
+| `α₁₀` | 0.2662 rad | 15.25° ✅ |
+| `S₁` | 0.0524 rad | 3.0° ✅ |
+| `S₂` | 0.0401 rad | 2.3° ✅ |
+| `T_P`, `T_f0`, `T_v0`, `T_vl` | 1.7, 3.0, 6.0, 7.0 | identical ✅ |
+
+New values: `K₀ = 0.0025`, `K₁ = −0.135`, `K₂ = 0.04`, `δ_α1 = 0.0367 rad = 2.103°`,
+`η = 0.97`, `m* = 2`. (`C_N1 = 1.45` here; Shao's 1.75 is the low-Mach replacement.)
+
+**GAP-4** — his Eqs. (2.7)–(2.9), matching the canonical forms already assumed:
+`C_N^f = C_Nα α ((1+√f)/2)²`, `C_C^f = η C_Nα α² √f`,
+`C_m^f = [K₀ + K₁(1−f) + K₂ sin(π f^{m*})] C_N^f`.
+
+**GAP-2** — `σ₁ = T_f/T_f0` is a switch table on vortex time and loading direction
+(`a·a' = α·dα/ds`), his Table 2.3 and Eq. (2.55):
+
+| | `0 ≤ τ_v ≤ T_vl` | `T_vl < τ_v ≤ 2T_vl` | `2T_vl < τ_v` |
+|---|---|---|---|
+| `a·a' ≥ 0` | 1 | 1/3 | 4 |
+| `a·a' < 0` | 1/2 | 1/2 | 4 |
+
+Reattachment phase: 1 if `x10 ≥ 0.7`, else 1/2.
+And `α₁ₙ` (his Eq. 2.54): `α₁₀` when loading, `α₁₀ − (1−x10)^0.25 δ_α1` when unloading.
+
+**GAP-3** — `σ₂ = T_v/T_v0`, his Table 2.4:
+
+| | `0 ≤ τ_v ≤ T_vl` | `T_vl < τ_v ≤ 2T_vl` | `2T_vl < τ_v` |
+|---|---|---|---|
+| `a·a' ≥ 0` | 1 | 0.25 | 0.90 |
+| `a·a' < 0` | 0.50 | 0.50 | 0.90 |
+
+`c_v = C_N^C(1 − K_N)` is confirmed: his explicit `c_v'` expression matches our analytic
+derivative term-for-term, including the `(1+√f)/(4√f)` factor.
+
+**GAP-5** — `τ_v` starts at zero when `|x9| = C_N1` **and `|x9|` is increasing**. Confirms the
+rising-edge reset already implemented.
+
+### 9.3 Remaining discrepancy is structural, not a constant
+
+With GAP-1–5 closed the model is faithful to the documented LB formulation, yet §10.1 still
+under-predicts: `C_N` peak **1.78 vs 2.55**, `C_m` min **−0.32 vs −0.62**.
+
+Decomposition at the `C_N` peak (α = 24.2°, `f'' = 0.208`, `τ_v = 3.7`):
+
+| term | value |
+|---|---|
+| `C_N^I` impulsive | +0.053 |
+| `C_N^f` separated circulatory | +1.267 |
+| `x12` vortex state (Eq. 15) | +0.348 |
+| `ΔC_N^v` overshoot (Eq. 18) | +0.115 |
+| **total** | **1.783** (need 2.550) |
+
+The **vortex path is short by roughly a factor of 2.5**. A sweep of `B₁` — the one genuinely
+free constant in Eq. (18) — shows it cannot close the gap: `B₁ = 5` (5× the paper's value)
+reaches only `C_N = 2.24`, and drives `C_m` the *wrong way* (−0.30 vs the needed −0.62).
+
+So the remaining error is a **form** difference, not a calibration one. Prime suspects, in order:
+
+1. **How Eq. (18) combines with `x12`** — the paper never says (theory.md §7.2). We assume
+   additive. If `ΔC_N^v` is instead meant to *scale* the vortex feed `c_v` before integration,
+   the vortex would accumulate far more.
+2. **The `C_m^v` treatment** — `C_m` is short by more than `C_N` proportionally, and `B₁` moves
+   it the wrong way, suggesting the moment's centre-of-pressure travel term is wrong.
+3. **The Eq. (15) feeding window** `0 < x11 < 2T_vl` combined with our `σ₂` may cut
+   accumulation too early.
 
 ### Canonical forms to verify against Refs. [10]/[16]
 
