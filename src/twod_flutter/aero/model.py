@@ -84,8 +84,8 @@ class LBModel:
     ) -> np.ndarray:
         """d(x)/ds for the 14 aerodynamic states.
 
-        ``dalpha_ds`` is needed only by the ``sigma1`` switch (GAP-2), which is
-        inert at the default settings.
+        ``dalpha_ds`` sets the loading direction used by the sigma1, sigma2 and
+        alpha_1n switch tables (theory.md §9.2).
         """
         af = self.af
         dx = np.zeros(N_AERO)
@@ -100,10 +100,21 @@ class LBModel:
         # -- x9: leading-edge pressure lag --------------------------------
         dx[I_X9] = sep.pressure_lag_derivative(x[I_X9], c_n_pot, af)
 
+        # Loading direction, alpha * d(alpha)/ds: >= 0 loading up, < 0 unloading.
+        # This is the switch variable for the T_f, T_v and alpha_1 tables
+        # (Chantharasenawong 2007, Tables 2.3-2.4 and Eq. 2.54).
+        loading = alpha * dalpha_ds
+
+        # "Shedding" selects the vortex-shedding branch of those tables. The
+        # thesis keys it on |x9| >= C_N1; we use the paper's modified low-Mach
+        # criterion on x14 instead, since that is what Eq. (17) replaces it with.
+        shedding = ds.is_stalled(x[I_X14], af)
+
         # -- x10: delayed separation point --------------------------------
-        stalled = ds.is_stalled(x[I_X14], af)
-        s1 = sep.sigma1(alpha, dalpha_ds, stalled, af)
-        dx[I_X10] = sep.separation_point_derivative(x[I_X9], x[I_X10], s1, af)
+        s1 = sep.sigma1(loading, x[I_X10], x[I_X11], shedding, af)
+        dx[I_X10] = sep.separation_point_derivative(
+            x[I_X9], x[I_X10], s1, loading, af
+        )
 
         # -- x11: vortex clock. Reset is a discrete event, see step_events.
         dx[I_X11] = 1.0
@@ -116,13 +127,23 @@ class LBModel:
         cv_dot = ds.vortex_feed_rate(
             c_n_circ, dc_n_circ_ds, x[I_X10], dx[I_X10]
         )
-        s2 = af.sigma2_base
+        if af.vortex_overshoot_mode == "feed":
+            # Eq. (18) read as an addition to the vortex FEED rather than to
+            # the finished load: dC_N^v joins c_v and is integrated by Eq. (15).
+            f_stat = sep.kirchhoff_f(alpha, af.alpha1_deg, af)
+            df_stat_ds = (
+                sep.kirchhoff_f_gradient(alpha, af.alpha1_deg, af) * dalpha_ds
+            )
+            cv_dot += ds.overshoot_rate(
+                x[I_X10], dx[I_X10], f_stat, df_stat_ds, x[I_X11], af
+            )
+        s2 = ds.sigma2(loading, x[I_X11], shedding, af)
         dx[I_X12] = ds.vortex_normal_force_derivative(
             x[I_X11], x[I_X12], alpha, cv_dot, s2, af
         )
 
         # -- x13: reattachment separation point ---------------------------
-        dx[I_X13] = sep.reattachment_derivative(x[I_X13], alpha, af)
+        dx[I_X13] = sep.reattachment_derivative(x[I_X13], alpha, loading, af)
 
         # -- x14: low-Mach onset lag --------------------------------------
         dx[I_X14] = ds.onset_lag_derivative(x[I_X9], x[I_X14], af)
@@ -134,9 +155,9 @@ class LBModel:
     ) -> tuple[np.ndarray, bool]:
         """Apply discrete events between integration steps.
 
-        **GAP-5.** Eq. (14) integrates the vortex clock at ``V/b`` but the
-        paper never states when it resets, and the equation is meaningless
-        without that. We reset ``x11`` to zero on each *rising* crossing of the
+        Eq. (14) integrates the vortex clock at ``V/b`` but the
+        paper never states when it resets. Chantharasenawong (2007) §2.4 supplies
+        the rule. We reset ``x11`` to zero on each *rising* crossing of the
         stall criterion, i.e. at each new shedding event.
         """
         stalled = ds.is_stalled(x[I_X14], self.af)
@@ -155,7 +176,7 @@ class LBModel:
         c_n_pot = attached.potential_normal_force(x[:8], alpha, q, af, self.mach)
 
         f_delayed = float(np.clip(x[I_X10], 0.0, 1.0))
-        f_static = sep.kirchhoff_f(alpha, af.alpha1_deg, af)
+        f_static = sep.kirchhoff_f(alpha, af.alpha1_deg, af)  # static ref, Eq. (18)
 
         # Separated circulatory loads (Eqs. 5-7 superscript f).
         c_n_f = al.separated_normal_force(alpha_e, f_delayed, af)
@@ -166,8 +187,14 @@ class LBModel:
         # theory.md §7.2 flags that the paper never states whether Eq. (18) is
         # additive to x12 or replaces it; additive is the reading consistent
         # with the word "overshoot", and is what we adopt.
-        d_c_n_v = ds.normal_force_overshoot(f_delayed, alpha, x[I_X11], af)
-        c_n_v = x[I_X12] + d_c_n_v
+        if af.vortex_overshoot_mode == "feed":
+            # Already integrated into x12 by the RHS -- adding it here too
+            # would double-count.
+            d_c_n_v = 0.0
+            c_n_v = x[I_X12]
+        else:
+            d_c_n_v = ds.normal_force_overshoot(f_delayed, alpha, x[I_X11], af)
+            c_n_v = x[I_X12] + d_c_n_v
         c_m_v = al.vortex_moment(x[I_X12], x[I_X11], af)
         c_m_v += ds.moment_overshoot(d_c_n_v, x[I_X11], af)
 

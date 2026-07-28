@@ -2,7 +2,7 @@
 
     xdot_tilde = A x_tilde + B u,    u = [alpha, q]^T
 
-**GAP-1: CLOSED.** The source paper defers ``A`` and ``B`` to Ref. [16]. They
+The source paper defers ``A`` and ``B`` to Ref. [16]. They
 are given in full by
 
     Leishman J.G., Nguyen K.Q., "State-Space Representation of Unsteady Airfoil

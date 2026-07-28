@@ -10,10 +10,9 @@ separation factor applied. Superscript ``I`` is therefore impulsive only. This
 is consistent with Eq. (10), where ``C_N^p = C_N^C + C_N^I`` is the fully
 attached potential load used to drive the pressure lag.
 
-**GAP-4.** The paper gives the separated-flow loads only as "the linear
-function of unsteady trailing edge separation point x10". The Kirchhoff and
-Beddoes forms below are canonical Leishman-Beddoes, not from this paper, and
-need checking against Ref. [16]. See ``docs/theory.md`` §9.
+The paper gives the separated-flow loads only as "the linear function of
+unsteady trailing edge separation point x10". The explicit forms below are from
+Chantharasenawong (2007) Eqs. (2.7)-(2.9). See ``docs/theory.md`` §9.2.
 """
 
 from __future__ import annotations

@@ -8,8 +8,22 @@ Working reference for reimplementing the airfoil aeroelastic stall-flutter model
 DOI [10.1016/S1000-9361(11)60064-2](https://doi.org/10.1016/S1000-9361(11)60064-2). Open access (CC BY-NC-ND).
 
 Equation numbers below match the paper. Everything in §2–§7 is transcribed from the paper.
-Everything marked **[GAP]** is *not* in the paper and must be sourced elsewhere before the model can run —
-see §9, which is the single most important section for planning implementation work.
+
+The paper is not self-contained — it defers roughly 40% of the model to its references. Those
+pieces have all been recovered; **§9 records where each came from**, and is the section to read
+before changing any coefficient.
+
+**Before extending this model to a new airfoil, Reynolds number, or amplitude, read §15 —
+limitations of the method.** In particular, §15.4 bears directly on how much weight the
+bifurcation conclusions in §10.3 can carry.
+
+**Supporting sources** (both required to implement the paper):
+
+- **[LN]** Leishman J.G., Nguyen K.Q., "State-Space Representation of Unsteady Airfoil Behavior,"
+  *AIAA Journal* **28**(5), 1990, 836–844. → attached flow, states `x1…x8`.
+- **[CH]** Chantharasenawong C., "Nonlinear aeroelastic behaviour of aerofoils under dynamic
+  stall," PhD thesis, Imperial College London, 2007 (the paper's Ref. [17]).
+  → separated-flow airloads, the `σ₁`/`σ₂` switch tables, `α₁ₙ`, `c_v`, vortex-clock reset.
 
 ---
 
@@ -114,9 +128,8 @@ x̃̇ = A x̃ + B u,     u = [α  q]ᵀ,     x̃ = [x1 x2 … x8]ᵀ            
 
 `α_E`, `C_N^I`, `C_m^I` and `C_C^I` are all recovered from `x̃`.
 
-**[GAP-1] `A` and `B` are not printed in the paper.** It says only "`A` and `B` are constant matrices
-from Ref. [16]" (Bauchau, *DYMORE User's and Theory Manual*, Georgia Tech, 2007). The output map
-`x̃ → (α_E, C_N^I, C_m^I)` is likewise not given. See §9.
+`A` and `B` are not printed in the paper — it says only that they are "constant matrices from
+Ref. [16]". They are given in full by **[LN]** Eqs. (17)–(21) and Appendices A–C; see §9.1.
 
 ---
 
@@ -158,7 +171,8 @@ and hence why `C_m0` is needed to break symmetry.
 with `C_Nα = 0.108`, `T_f = 3.0`. `σ₁` is a "modification coefficient of time constant `T_f`" and
 `α₁ₙ` is described only as "the function of `x10`".
 
-**[GAP-2] Neither `σ₁` nor `α₁ₙ` is defined in the paper.** See §9.
+Neither `σ₁` nor `α₁ₙ` is defined in the paper. Both come from **[CH]** — `σ₁` is a switch
+table, not a constant. See §9.2.
 
 `x10` is the delayed separation point, written `f″` in Eq. (18).
 
@@ -180,9 +194,10 @@ i.e. `|x9| > C_N1`. **This is the original L-B criterion, superseded at low Mach
 ẋ11 = V/b                                                           (14)
 ```
 
-`x11` is non-dimensional time since stall onset, in semi-chords. It is the `τ` appearing in
-Eqs. (19)–(20). It must be **reset to zero at each stall onset event** and held/frozen otherwise —
-the paper does not state the reset logic explicitly, but Eq. (14) is meaningless without it.
+`x11` is non-dimensional time since stall onset, in semi-chords — the `τ` of Eqs. (19)–(20).
+The paper never states the reset rule, and Eq. (14) is meaningless without one. **[CH]** supplies
+it: `τ_v` starts at zero when `|x9|` reaches `C_N1` **while increasing**, i.e. on the rising edge
+of the stall criterion.
 
 ### 6.3 Vortex-induced normal force (Eq. 15)
 
@@ -195,7 +210,7 @@ the paper does not state the reset logic explicitly, but Eq. (14) is meaningless
 with `T_v = 6.0`, `T_vl = 7.0`. `c_v` is "the strength of vortex induced normal force" and `σ₂` is
 the modification coefficient on `T_v`. `x12` represents `C_N^v`.
 
-**[GAP-3] `c_v` and `σ₂` are not defined in the paper.** See §9.
+`c_v` and `σ₂` are not defined in the paper; both come from **[CH]**. See §9.2.
 
 The switch means: while the vortex is being fed (`α` and `ċ_v` same sign, i.e. loading still
 growing) and the vortex is still over the airfoil (`x11 < 2·T_vl`), the state accumulates; otherwise
@@ -271,7 +286,12 @@ with `B₂ = 0.2`.
 
 > **Two ambiguities to resolve:**
 > 1. Eq. (19) uses `τ`, Eq. (20) uses `τ_v`. Almost certainly the same quantity (`x11`). Treat as identical unless evidence emerges otherwise.
-> 2. The paper does **not** state how `ΔC_N^v` (Eq. 18) combines with `C_N^v` from state `x12` (Eq. 15) in the assembly of Eq. (5) — additive (`C_N^v = x12 + ΔC_N^v`) or replacement. Additive is the reading most consistent with the word "overshoot"/"additional", and is the recommended starting assumption; validate against Fig. 3 (§10.1). Same question for `ΔC_m^v` vs `C_m^v`.
+> 2. The paper does **not** state how `ΔC_N^v` (Eq. 18) combines with `C_N^v` from state `x12`
+>    (Eq. 15). Two readings are implemented, selected by `vortex_overshoot_mode`:
+>    `"additive"` (`C_N^v = x12 + ΔC_N^v`, the default) and `"feed"` (`ΔC_N^v` is injected into
+>    the vortex feed `c_v` and integrated by Eq. 15). **Both were tested and neither closes the
+>    §10.1 gap** — they differ by under 2% in `C_N` peak. The ambiguity is therefore *not* the
+>    cause of the residual discrepancy; see §9.3.
 
 ---
 
@@ -325,27 +345,28 @@ This closes the loop: structure → `(α, q)` → L-B model → `(C_L, C_m)` →
 
 ---
 
-## 9. Gap register — what must be sourced before anything runs
+## 9. Sources for what the paper omits
 
-This is the critical planning output. The paper is **not self-contained**; it is a delta on top of
-Refs. [10], [11–14] and [16]. Roughly 40% of the model is by reference.
+The paper defers roughly 40% of the model to its references. Everything is now recovered; this
+section records the provenance so a future change to any coefficient can be traced to a source.
 
-| # | Missing | Paper's pointer | Impact |
+| Item | Paper's pointer | Recovered from | §  |
 |---|---|---|---|
-| ~~**GAP-1**~~ | ~~`A`, `B` matrices (Eq. 8)~~ | **CLOSED** — see §9.1 | ✅ resolved |
-| **GAP-2** | `σ₁` (Eq. 12) and `α₁ₙ` (Eqs. 12, 16) | Ref. [16] | **Blocking.** Controls separation dynamics. |
-| **GAP-3** | `c_v` and `σ₂` (Eq. 15) | Ref. [16] | **Blocking.** Controls vortex lift. |
-| **GAP-4** | `C_N^f`, `C_m^f`, `C_C^f` as functions of `x10`/`x13` | stated only as "linear function of `x10`" | **Blocking.** Separated-flow airloads. |
-| **GAP-5** | `x11` reset logic at stall onset | not stated | **Blocking.** Eq. (14) is incomplete without it. |
-| **GAP-6** | Newmark average-velocity state-space integrator | Ref. [15] Kim & Lee 2005 | Non-blocking — see §11. |
-| **GAP-7** | `S` (or `x_θ`), `a_h`, `ρ`, and structural ICs for the flutter case | not given | **Blocking for §10.3** only. |
+| `A`, `B` matrices (Eq. 8) and the output map | Ref. [16] | **[LN]** Eqs. 17–21, App. A–C | 9.1 |
+| `σ₁` (Eq. 12), `α₁ₙ` (Eqs. 12, 16) | Ref. [16] | **[CH]** Table 2.3, Eqs. 2.54–2.55 | 9.2 |
+| `c_v`, `σ₂` (Eq. 15) | Ref. [16] | **[CH]** Table 2.4, `c_v'` expression | 9.2 |
+| `C_N^f`, `C_m^f`, `C_C^f` | "linear function of `x10`" | **[CH]** Eqs. 2.7–2.9, Table 2.1 | 9.2 |
+| `x11` reset rule (Eq. 14) | not stated | **[CH]** §2.4 — rising edge of `\|x9\| = C_N1` | 9.2 |
+| Newmark average-velocity integrator | Ref. [15] | implemented in `integrators.py` | 11 |
 
-### 9.1 GAP-1: CLOSED
+One item is **still outstanding** and blocks §10.3 only: the structural static mass moment `S`
+(equivalently `x_θ`) and air density `ρ` for the flutter case. Neither appears in the paper; both
+must come from Ref. [3] (Dimitriadis & Li). The aerodynamic model is unaffected.
 
-Source: **Leishman J.G., Nguyen K.Q., "State-Space Representation of Unsteady Airfoil
-Behavior," *AIAA Journal* 28(5), 1990, 836–844.** Its state numbering `x1…x8` matches this
-paper's exactly, and its `A` is **diagonal** — which is what lets Eq. (8) be written with
-constant matrices.
+### 9.1 Attached flow, from [LN]
+
+**[LN]**'s state numbering `x1…x8` matches this paper's exactly, and its `A` is **diagonal** —
+which is what lets Eq. (8) be written with constant matrices.
 
 | state | driven by | role |
 |---|---|---|
@@ -357,10 +378,10 @@ constant matrices.
 | `x8` | `q` | non-circulatory moment |
 
 Their Eq. (17): `ẋ₁ = (2V/c)β²(−b₁)x₁ + α_{3/4}`, output `C_N^C = (2π/β)(2V/c)β²[A₁b₁ A₂b₂]x`.
-Note `B` carries **no** `2V/c` factor, so the raw states are dimensional; we integrate the
-scaled states `x̂ = x·(2V/c)`, which makes every equation velocity-independent in `s`.
+`B` carries **no** `2V/c` factor, so the raw states are dimensional; we integrate the scaled
+states `x̂ = x·(2V/c)`, which makes every equation velocity-independent in `s`.
 
-Non-circulatory time constants (their Eqs. A2, A6, A12), all with `T_I = c/a`:
+Non-circulatory time constants (their Eqs. A2, A6, A12), with `T_I = c/a`:
 
 ```
 K_α  = [(1−M) + πβM²(A₁b₁+A₂b₂)]⁻¹
@@ -369,44 +390,103 @@ K_αM = (A₃b₄ + A₄b₃) / (b₃b₄(1−M))       A₃=1.5, A₄=−0.5, b
 K_qM = 7 / [15(1−M) + 3πβM²b₅]           b₅=0.5
 ```
 
-> **⚠ Trap:** their closing remark states the non-circulatory constants "were reduced by 25%
-> from their theoretical values." So **0.75 is a multiplier on `K(M)`, not the value of `K`**.
-> Reading it as the value gives `K_α = 0.75` where the correct figure at Ma = 0.12 is
-> `0.75 × 1.113 = 0.835`.
+> **⚠ Trap:** their closing remark states the non-circulatory constants "were reduced by 25% from
+> their theoretical values." **0.75 is a multiplier on `K(M)`, not the value of `K`.** Reading it
+> as the value gives `K_α = 0.75` where the correct figure at Ma = 0.12 is `0.75 × 1.113 = 0.835`.
 
-Circulatory constants confirmed as `A₁=0.3, A₂=0.7, b₁=0.14, b₂=0.53` (Beddoes), with
-`A₁+A₂ = 1` so `φ(0) = 0` — the *compressible* convention, where the non-circulatory term
-supplies the initial load. This differs from Jones/Wagner (`A₁=0.165, A₂=0.335`, `φ(0) = 0.5`),
-which is why their Eq. (10) carries an extra `0.5α_{3/4}` term and Eq. (18) does not.
+Circulatory constants `A₁=0.3, A₂=0.7, b₁=0.14, b₂=0.53` (Beddoes), with `A₁+A₂ = 1` so
+`φ(0) = 0` — the *compressible* convention, where the non-circulatory term supplies the initial
+load. This differs from Jones/Wagner (`A₁=0.165, A₂=0.335`, `φ(0) = 0.5`), which is why **[LN]**'s
+Eq. (10) carries an extra `0.5α_{3/4}` term and their Eq. (18) does not.
 
-**Consequence — the model is stiff.** With the correct constants the state time constants at
-Ma = 0.12 span `τ = 0.020` (x6) to `7.25` (x1) semi-chords, a **stiffness ratio of ~354**.
-Explicit RK4 then needs `Δs < 2.78τ_min = 0.057`, i.e. **> 891 steps/cycle** at `k = 0.124`.
-This is the concrete reason the source paper reports explicit integration as unstable and
-adopts implicit Newmark (Ref. [15]) — §11 is not a stylistic preference.
+**Consequence — the model is stiff.** State time constants at Ma = 0.12 span `τ = 0.020` (x6) to
+`7.25` (x1) semi-chords, a **stiffness ratio of ~354**. Explicit RK4 needs `Δs < 2.78τ_min`, i.e.
+**> 891 steps/cycle** at `k = 0.124`. This is the concrete reason the paper reports explicit
+integration as unstable and adopts implicit Newmark — §11 is not a stylistic preference.
 
-**Empirical result:** closing GAP-1 changed the §10.1 validation by <0.2% (`C_N` peak
-1.917 → 1.920). The attached-flow model is therefore **not** the source of the remaining
-magnitude error; that lies in GAP-3/GAP-4 (the vortex and separated-flow loads).
+### 9.2 Separated flow and dynamic stall, from [CH]
 
-### Canonical forms to verify against Refs. [10]/[16]
+**Cross-check first.** His Table 2.1 gives NACA0012 constants vs Mach. The **M = 0.30 column is
+exactly this paper's constant set**, with angles in radians rather than degrees:
 
-The following are the standard L-B expressions. They are **not from this paper** and must be
-confirmed against the DYMORE manual before being trusted — recorded here as the starting hypothesis
-so the gap work has a concrete target to check:
+| [CH] at M=0.30 | Value | This paper |
+|---|---|---|
+| `C_Nα^S` | 6.1879 /rad | 0.108 /deg ✅ |
+| `α₁₀` | 0.2662 rad | 15.25° ✅ |
+| `S₁` | 0.0524 rad | 3.0° ✅ |
+| `S₂` | 0.0401 rad | 2.3° ✅ |
+| `T_P`, `T_f0`, `T_v0`, `T_vl` | 1.7, 3.0, 6.0, 7.0 | identical ✅ |
 
-- **Kirchhoff normal force:** `C_N^f = C_Nα · ((1 + √f″)/2)² · α_E`
-- **Chord force:** `C_C^f = η · C_Nα · α_E² · √f″`
-- **Moment:** `C_m^f = (K₀ + K₁(1 − f″) + K₂ sin(π f″^{k})) · C_N^f` (Beddoes form; `K₀,K₁,K₂` airfoil constants)
-- **Vortex feed:** `c_v = C_N^C · [1 − ((1 + √f″)/2)²]` — the difference between attached-flow and Kirchhoff normal force, i.e. the lift "missing" due to separation, which is what rolls up into the vortex
-- **Attached-flow circulatory indicial response:** Wagner-type two-lag approximation
-  `φ(s) = 1 − A₁e^{−b₁s} − A₂e^{−b₂s}`, typically `A₁ = 0.3, A₂ = 0.7, b₁ = 0.14, b₂ = 0.53`
-- **Attached-flow non-circulatory:** added-mass / Theodorsen terms in the incompressible limit
-  (the usual compressible `4/M`-scaled deficiency functions degenerate as `M → 0`, so the low-Mach
-  limit needs care — this is a known trap at Ma = 0.12)
-- **`σ₁`, `σ₂`:** in Beddoes' formulation these are *switches*, not constants — they take different
-  values depending on whether flow is separating vs. reattaching and whether the airfoil is stalled.
-  Expect a small lookup table, not a scalar.
+That is an independent confirmation of the transcription *and* of the degrees/radians reading in §2.
+
+Additional constants: `K₀ = 0.0025`, `K₁ = −0.135`, `K₂ = 0.04`, `δ_α1 = 0.0367 rad = 2.103°`,
+`η = 0.97`, `m* = 2`. (`C_N1 = 1.45` at M = 0.30; this paper's 1.75 is the low-Mach replacement.)
+
+**Separated-flow airloads** — his Eqs. (2.7)–(2.9):
+
+```
+C_N^f = C_Nα · ((1+√f)/2)² · α_E
+C_C^f = η · C_Nα · α_E² · √f
+C_m^f = [K₀ + K₁(1−f) + K₂ sin(π f^{m*})] · C_N^f
+```
+
+**`σ₁ = T_f/T_f0`** is a switch table on vortex time and loading direction (`a·a' = α·dα/ds`),
+his Table 2.3:
+
+| | `0 ≤ τ_v ≤ T_vl` | `T_vl < τ_v ≤ 2T_vl` | `2T_vl < τ_v` |
+|---|---|---|---|
+| `a·a' ≥ 0` | 1 | 1/3 | 4 |
+| `a·a' < 0` | 1/2 | 1/2 | 4 |
+
+Reattachment phase (his Eq. 2.55): 1 if `x10 ≥ 0.7`, else 1/2.
+
+**`α₁ₙ`** (his Eq. 2.54): `α₁₀` when loading, `α₁₀ − (1−x10)^0.25 · δ_α1` when unloading.
+
+**`σ₂ = T_v/T_v0`**, his Table 2.4:
+
+| | `0 ≤ τ_v ≤ T_vl` | `T_vl < τ_v ≤ 2T_vl` | `2T_vl < τ_v` |
+|---|---|---|---|
+| `a·a' ≥ 0` | 1 | 0.25 | 0.90 |
+| `a·a' < 0` | 0.50 | 0.50 | 0.90 |
+
+Reattachment phase: 1.
+
+**`c_v = C_N^C(1 − K_N)`** — his explicit `c_v'` expression matches the analytic derivative used
+in `dynamic_stall.vortex_feed_rate` term-for-term, including the `(1+√f)/(4√f)` factor.
+
+**`x11` reset** — `τ_v` starts at zero when `|x9|` reaches `C_N1` *while increasing*.
+
+### 9.3 Status of the §10.1 discrepancy
+
+The LB core is **verified independently** against **[CH]** Fig. 2.9 (§10.0), to within 3–5%.
+Against this paper's own Fig. 3, however, `C_N` peak reads 1.78 vs 2.55.
+
+Decomposition at the `C_N` peak (α = 24.2°, `f'' = 0.208`, `τ_v = 3.7`):
+
+| term | value |
+|---|---|
+| `C_N^I` impulsive | +0.053 |
+| `C_N^f` separated circulatory | +1.267 |
+| `x12` vortex state (Eq. 15) | +0.348 |
+| `ΔC_N^v` overshoot (Eq. 18) | +0.115 |
+| **total** | **1.783** (paper 2.550) |
+
+Two candidate explanations have been **tested and eliminated**:
+
+1. **The Eq. (18) combination ambiguity.** Both readings are implemented
+   (`vortex_overshoot_mode`): `"additive"` gives `C_N` = 1.783, `"feed"` gives 1.752. They differ
+   by under 2% — the ambiguity is not the cause.
+2. **Calibration of `B₁`.** A sweep shows `B₁ = 5` (5× the paper's value) reaches only
+   `C_N` = 2.24, and drives `C_m` the *wrong way* (−0.30 against the needed −0.62).
+
+Since the LB core reproduces an independently published result and neither reading nor
+calibration closes the gap, the discrepancy is specific to this paper's low-Mach modification
+(Eqs. 17–20) at deep-stall amplitude. Remaining suspects, untested:
+
+- The `C_m^v` centre-of-pressure travel term — `C_m` is proportionally further off than `C_N`.
+- The Eq. (15) feeding window `0 < x11 < 2T_vl` combined with `σ₂` may truncate accumulation.
+- The paper's Figs. 3–4 may be plotted against a different reduced-frequency convention; `k`
+  is stated but the convention is not (§10.1).
 
 ---
 
@@ -414,6 +494,28 @@ so the gap work has a concrete target to check:
 
 Three independent checks, in increasing order of difficulty. **Do them in this order** — the
 aeroelastic result (§10.3) is meaningless if §10.1 fails.
+
+### 10.0 LB core verification against [CH] Fig. 2.9 — **PASSING**
+
+Run first. This exercises the LB model at **[CH]**'s baseline settings, *without* this paper's
+low-Mach modification, and so separates "is our LB core right?" from "is our reading of Eqs. 17–20
+right?" — a distinction §10.1 cannot make on its own.
+
+| Parameter | Value |
+|---|---|
+| motion | `α = 10° + 9° sin(0.1 S)`, `S = 2Vt/c` |
+| `k` | 0.1 (from `0.1·S = 0.2Vt/c` ⟹ `ω = 0.2V/c`) |
+| Ma | 0.30 (we run 0.29; 0.30 is the model's stated limit) |
+| `C_N1` | 1.45 — **[CH]**'s M=0.30 value, not this paper's 1.75 |
+
+| Quantity | [CH] Fig. 2.9 | Model | Error |
+|---|---|---|---|
+| `C_N` peak | 1.95 | 2.009 | **+3.0%** |
+| `C_m` min | −0.30 | −0.281 | **+6.3%** |
+| peak location | α ≈ 18–19° | α ≈ 18.8° | ✅ |
+
+Case: `models/cases/naca0012_thesis_fig29.yaml`. **[CH]** notes a known discrepancy on the
+reattachment branch that is also present in Leishman's own published results — do not chase it.
 
 ### 10.1 NACA0012 forced-pitch airloads (Figs. 3–4)
 
@@ -461,8 +563,8 @@ does not say what was changed for OA207 — expect this case to require its own 
 | `C_m0` | 0, 0.005, 0.010 |
 
 Elastic axis is at the **quarter chord** (implied by `I_θ` being defined about 1/4 chord), i.e.
-`a_h = −0.5`. **`S`, `x_θ` and `ρ` are not given (GAP-7)** — they must be recovered from Ref. [3]
-(Dimitriadis & Li), which is the source of the experiment.
+`a_h = −0.5`. **`S`, `x_θ` and `ρ` are not given** — the one outstanding item (§9), to be
+recovered from Ref. [3] (Dimitriadis & Li), which is the source of the experiment.
 
 **Target — reproduce Table 1:**
 
@@ -506,15 +608,14 @@ average-velocity if fidelity to the paper's numerics turns out to matter. Two ca
 - The RHS has **hard switches** (Eq. 15's conditional, the stall-onset trigger, the `V_x`/`f`
   branch points). Adaptive implicit solvers will struggle across discontinuities. Either use
   event detection to break integration at switch points, or accept fixed-step Newmark.
-- The `x11` clock reset (GAP-5) is a discrete event, not an ODE — it needs explicit event handling
+- The `x11` clock reset (§9.2) is a discrete event, not an ODE — it needs explicit event handling
   regardless of integrator choice.
 
 ---
 
 ## 12. Suggested implementation order
 
-1. **Close GAP-1 through GAP-4** from the DYMORE manual (Ref. [16]) and Leishman & Crouse (Ref. [10]).
-   Nothing runs until this is done. Record every recovered expression back into this document.
+1. ~~Recover the deferred formulation from [LN] and [CH]~~ — **done**, see §9.
 2. **Static airloads:** implement Eq. (11) and the steady Kirchhoff reconstruction. Verify
    `C_N` vs `α` matches a static NACA0012 curve. Cheap, catches the degrees/radians bug early.
 3. **Attached-flow module** (Eq. 8) in isolation. Verify indicial step response against Wagner.
@@ -563,8 +664,11 @@ All Mach-number-dependent, taken from Ref. [16] unless noted, and tuned for NACA
 | `C_N1` | 1.75 | (17) | **low-Mach onset threshold** (Ref. [14]) |
 | `B₁` | 1.0 | (18) | `C_N` overshoot magnitude |
 | `B₂` | 0.2 | (20) | `C_m` overshoot magnitude |
-| `σ₁` | **undefined** | (12) | GAP-2 |
-| `σ₂` | **undefined** | (15) | GAP-3 |
+| `σ₁` | switch table | (12) | §9.2, [CH] Table 2.3 |
+| `σ₂` | switch table | (15) | §9.2, [CH] Table 2.4 |
+| `δ_α1` | 2.103 ° | (12) | §9.2, [CH] Table 2.1 |
+| `K₀`, `K₁`, `K₂` | 0.0025, −0.135, 0.04 | (6) | §9.2, [CH] Table 2.1 |
+| `η`, `m*` | 0.97, 2 | (7) | §9.2, [CH] Eq. 2.8 |
 
 All time constants are non-dimensional (semi-chords of travel).
 
@@ -580,31 +684,185 @@ Collected for convenience; each is discussed in context above.
 4. **§5.2 text** states the phase-plane trajectory "crosses the vertical lines of `x10 = ±C_N1`"; it should be `x14`. Confirmed by the same paragraph correctly identifying `x14` as the lagged leading-edge pressure quantity.
 5. **`I_θ` units** printed as `kg/m²`; dimensionally a polar moment per unit span is `kg·m²/m = kg·m`.
 6. **No definition** of how `ΔC_N^v`/`ΔC_m^v` (Eqs. 18, 20) enter Eqs. (5)–(6) relative to `x12`.
-7. **Ref. [3] citation** is given as "AIAA Journal 2009; 41(11)" — volume 41 is 2003, not 2009. Check the actual Dimitriadis & Li reference when sourcing GAP-7.
+7. **Ref. [3] citation** is given as "AIAA Journal 2009; 41(11)" — volume 41 is 2003, not 2009. Check the actual Dimitriadis & Li reference when sourcing the structural parameters.
 
 ---
 
-## 15. References (as cited by the paper)
+## 15. Limitations of the method
+
+The model reproduces dynamic-stall airloads well (§10.0) but it is a semi-empirical correlation
+with a bounded envelope, and several of its properties bear directly on how much weight the
+flutter conclusions in §10.3 can carry. Read this before extending the model to a new airfoil,
+Reynolds number, or amplitude.
+
+### 15.1 It is a correlation, not a prediction from geometry
+
+The Leishman–Beddoes model contains no geometric input. Thickness, camber, and leading-edge
+radius enter *only* through fitted constants. The table in §13 is **NACA0012-specific**; the
+constants come from static and dynamic wind-tunnel data for that section.
+
+Consequences:
+
+- The OA207 case (§10.2) needs its own constant set. The paper does not state what it changed,
+  which makes that validation case unreproducible as published.
+- Applying NACA0012 constants to any other section is unsupported, and will fail silently — the
+  model will produce plausible-looking hysteresis loops that are simply wrong.
+
+### 15.2 Reynolds number does not appear anywhere
+
+Re is not an input to any equation in the formulation, yet dynamic-stall onset, vortex strength
+and reattachment are all strongly Re-dependent.
+
+The omission is masked in this paper because both validation cases sit at the same order —
+Re ≈ 1.5 × 10⁶ (NACA0012, §10.1) and 2.0 × 10⁶ (OA207, §10.2). Extrapolating to low Re (small
+UAVs, sub-scale wind-tunnel models, MAVs) is not supported by anything in this model; that regime
+has its own modified-LB literature.
+
+### 15.3 Constants are tabulated at Ma ≥ 0.30 but used at Ma = 0.12
+
+The empirical tables (§13, and [CH] Table 2.1) **bottom out at Ma = 0.30**. The §10.1 validation
+runs at Ma = 0.12 — well below the fitted range.
+
+The paper's low-Mach modification replaces only **two** constants: `T_b = 2.2` and `C_N1 = 1.75`.
+Everything else — `T_p`, `T_f`, `T_v`, `T_vl`, `α₁`, `S₁`, `S₂`, `C_Nα` — is the Ma = 0.30 column
+used unchanged at a quarter of that Mach number.
+
+This is a plausible contributor to the §10.1 magnitude shortfall, and it is **untested** (§9.3).
+It also explains why §10.0 — which runs at the constants' native Ma = 0.30 — passes while §10.1
+does not.
+
+### 15.4 The model is non-smooth, and the paper's conclusions are about bifurcations
+
+**This is the most consequential limitation for §10.3.** The right-hand side contains hard
+switches, not just nonlinearities:
+
+| Switch | Discontinuous in |
+|---|---|
+| `σ₁`, `σ₂` tables (§9.2) | `τ_v` at `T_vl`, `2T_vl`; and in `sign(α·α')` |
+| stall onset `\|x14\| > C_N1` | the state itself |
+| `α₁ₙ` droop (Eq. 2.54) | `sign(α·α')` |
+| Kirchhoff `f` (Eq. 11) | gradient discontinuous at `\|α\| = α₁` |
+| `V_x` (Eq. 19) | branch change at `τ = T_v` |
+| Eq. (15) feeding condition | `α·ċ_v` sign and the `τ_v` window |
+
+Two distinct consequences:
+
+**(a) Numerical.** No classical smooth-ODE convergence theory applies. Adaptive step-size solvers
+mis-handle the switches by construction, which is why integration here is fixed-step (§11). Our
+event handling applies switches *between* steps, so the crossing instant is resolved only to
+`O(Δs)` — accuracy near a switch is first-order regardless of the integrator's formal order.
+
+**(b) Mathematical, and more serious.** Non-smooth dynamical systems admit bifurcations with **no
+smooth analogue** — grazing, sliding, and other discontinuity-induced transitions. The paper
+classifies its results in the language of smooth theory: a *subcritical Hopf bifurcation*, and
+symmetric/asymmetric *limit cycles*. That classification presumes smoothness the model does not
+have.
+
+Some of the reported structure may therefore be an artefact of the switches rather than of the
+physics. This is a documented concern for exactly this model — see Galvanetto, Peiró &
+Chantharasenawong, "An assessment of some effects of the nonsmoothness of the Leishman–Beddoes
+dynamic stall model on the nonlinear dynamics of a typical aerofoil section."
+
+**Practical guidance:** treat §10.3's bifurcation *classification* as descriptive rather than as a
+rigorous dynamical-systems claim. The velocities at which behaviour changes are meaningful and
+worth reproducing; the labels attached to those transitions are less so. When reproducing the
+bifurcation diagrams, check sensitivity to step size — a transition velocity that moves with `Δs`
+is a numerical artefact of switch resolution, not a physical boundary.
+
+### 15.5 The static Kirchhoff reconstruction has a limited range
+
+- `f(α, α₁)` is written in `|α|` and is therefore **even**: it cannot represent camber. The paper
+  bolts asymmetry back on through `C_m0`, which is a moment offset, not a genuine cambered-section
+  model.
+- Kirchhoff lift diverges from experiment beyond **α ≈ 60°** ([CH] Fig. 2.4, against Sheldahl &
+  Klimas data); calculations should be confined to `|α| ≤ 60°`.
+- §10.1 peaks at α = 25°, comfortably inside — but a growing flutter LCO can exit the valid range
+  *silently*, since nothing in the formulation flags it. Worth an explicit runtime check when
+  running §10.3 sweeps.
+
+### 15.6 Reattachment is the weakest branch of the model
+
+Both source documents concede this independently:
+
+- **[CH]**: "A major discrepancy is observed during the reattachment period, but this is also
+  present in the original numerical results reported by Leishman."
+- **Shao**: predicted `C_N` is "a little higher than experimental data at the low angle of attack
+  of flow reattachment phase", which the paper argues makes flutter analysis conservative.
+
+That argument holds for a *flutter boundary* but not for *LCO amplitude*. LCO amplitude is set by
+the balance of energy input and extraction integrated over the whole cycle, so an error confined
+to the reattachment branch still biases both the amplitude and the velocities at which
+bifurcations occur.
+
+### 15.7 The structural model is deliberately minimal
+
+- **2 DOF, rigid section, linear springs.** No chordwise flexibility, no higher modes, no
+  geometric stiffening.
+- **No structural damping at all** (`C_h = C_θ = 0`) — every dissipative mechanism in the model is
+  aerodynamic. Real mounts have hysteretic and bearing damping, so predicted flutter onset will be
+  earlier than reality and LCO amplitudes larger.
+- **`α = θ + ḣ/V` (Eq. 25) is a small-angle, quasi-steady inflow relation.** It is a linearisation
+  valid for `ḣ/V` small; at large LCO amplitude near stall that assumption is doing real work.
+- **`q = θ̇c/V` carries pitch rate only.** Plunge acceleration's contribution to the 3/4-chord
+  downwash is not carried as a separate input to Eq. (8).
+- **Added mass enters only as a load,** through the impulsive terms, which are functions of `α`
+  and `q`. Physically, added mass modifies the *inertia* of the coupled system — it belongs in the
+  mass matrix. Representing it as an external load is an approximation that can shift computed
+  flutter boundaries. (There is a dedicated literature on this: "Assessment of added mass effects
+  on flutter boundaries using the Leishman–Beddoes dynamic stall model.")
+- **Elastic axis at the quarter chord is inferred**, not stated — it follows only from `I_θ` being
+  defined about `c/4` (§10.3).
+- **Strictly 2D.** No finite span, no three-dimensional stall relief, no sweep — all of which
+  delay and soften stall on a real wing or blade.
+
+### 15.8 Implementation-specific caveats
+
+Things true of *this codebase* rather than of the method, carried here so they are not forgotten:
+
+| Item | Status |
+|---|---|
+| Eq. (16) | implemented **with** the `V/b` factor the paper omits (§14, defect 2) |
+| Eq. (18) combination | ambiguous; both readings implemented, neither matches (§9.3) |
+| Phase switching | keyed on `x14` (this paper's criterion); **[CH]** keys on `x9` — our choice |
+| Vortex clock reset | inferred from **[CH]**, never stated by this paper |
+| §10.1 magnitude | **unvalidated** — `C_N` 30% low, `C_m` 48% low; any flutter result inherits this |
+| Newmark integrator | implemented but unused in validation runs (RK4 at ≥891 steps/cycle) |
+| Structural model | defined in config only; coupling and §10.3 not yet implemented |
+
+### 15.9 Validity envelope, at a glance
+
+| Quantity | Supported range | Note |
+|---|---|---|
+| Mach | `< 0.3` (enforced in `config.Flow`) | constants themselves fitted at `≥ 0.30` (§15.3) |
+| Reynolds | ~1–2 × 10⁶ as validated | **not a model input** (§15.2) |
+| Angle of attack | `\|α\| ≤ 60°` | Kirchhoff reconstruction limit (§15.5) |
+| Airfoil | NACA0012 only | constants are per-section (§15.1) |
+| Structure | 2-DOF rigid, undamped, linear | (§15.7) |
+| Flow | 2D, attached through deep stall | no finite span or 3D relief (§15.7) |
+
+---
+
+## 16. References (as cited by the paper)
 
 Key ones for gap-closing are marked ★.
 
-- [3] Dimitriadis G, Li J. "Bifurcation behavior of airfoil undergoing stall flutter oscillations in low-speed wind tunnel." *AIAA Journal* 2009; 41(11): 2577–2596. ★ *(source of the §10.3 experiment and GAP-7)*
-- [10] Leishman J G, Crouse G L. "State-space model for unsteady airfoil behavior and dynamic stall." *Proc. 30th AIAA/ASME/ASCE/AHS/ASC Structures*, 1989; 1319–1330. ★ *(GAP-1)*
+- [3] Dimitriadis G, Li J. "Bifurcation behavior of airfoil undergoing stall flutter oscillations in low-speed wind tunnel." *AIAA Journal* 2009; 41(11): 2577–2596. ★ *(source of the §10.3 experiment and the outstanding structural parameters)*
+- [10] Leishman J G, Crouse G L. "State-space model for unsteady airfoil behavior and dynamic stall." *Proc. 30th AIAA/ASME/ASCE/AHS/ASC Structures*, 1989; 1319–1330. *(superseded for our purposes by [LN] 1990, which prints the matrices in full)*
 - [11] Beddoes T S. "A third generation model for unsteady aerodynamics and dynamic stall." Westland Limited RP-908, 1993. ★ *(basis of Eqs. 18–20)*
 - [12] Galbraith R A McD, Coton F N. "A new stall-onset criterion for low speed dynamic-stall." *J. Solar Energy Engineering* 2006; 128(4): 461–471.
 - [13] Galbraith R A McD, Coton F N. "Improved dynamic stall onset criterion at low Mach numbers." *J. Aircraft* 2007; 44(3): 1049–1052.
 - [14] Galbraith R A McD, Coton F N. "A modified dynamic stall model for low Mach numbers." *J. Solar Energy Engineering* 2008; 130(3): 31013–31022. ★ *(source of `T_b`, `C_N1`, and §10.1 experimental data)*
-- [15] Kim B O, Lee A S. "A transient response analysis in the state-space applying the average velocity concept." *J. Sound and Vibration* 2005; 281(3–5): 1023–1035. *(GAP-6, integrator)*
-- [16] Bauchau O A. *DYMORE User's and Theory Manual.* Georgia Institute of Technology, 2007. ★★ *(GAP-1, 2, 3, 4 — the single most important missing source)*
+- [15] Kim B O, Lee A S. "A transient response analysis in the state-space applying the average velocity concept." *J. Sound and Vibration* 2005; 281(3–5): 1023–1035. *(the Newmark average-velocity integrator)*
+- [16] Bauchau O A. *DYMORE User's and Theory Manual.* Georgia Institute of Technology, 2007. *(the paper's pointer for the deferred formulation; never obtained — [LN] and [CH] supplied all of it instead)*
 - [17] Chantharasenawong C. "Nonlinear aeroelastic behaviour of aerofoils under dynamic stall." PhD thesis, University of London, 2007. ★ *(likely contains the same L-B state-space formulation in full)*
 - [18] Fung Y C. *An Introduction to the Theory of Aeroelasticity.* Chapman & Hall, 1993; 210–212. *(Eqs. 21–22)*
 - [19] Tan J F. "Analysis of rotor aerodynamic response under manoeuvring conditions." MSc thesis, NUAA, 2009. [in Chinese] *(§10.2 OA207 data)*
 
-> **Practical note on GAP closure:** Ref. [17] (Chantharasenawong's thesis) is likely the most
-> productive single source — PhD theses on exactly this topic normally reproduce the full L-B
-> state-space equations in an appendix, whereas the DYMORE manual is a code manual and may be
-> harder to obtain. Leishman's *Principles of Helicopter Aerodynamics* (Ch. 8–9) is the standard
-> textbook treatment and covers most of GAP-1 through GAP-4.
+> **Note:** Ref. [17] (Chantharasenawong's thesis) proved to be the decisive source — its §2.4–2.5
+> reproduces the full L-B state-space formulation including the switch tables the paper omits, and
+> it is freely available from the author. The DYMORE manual, which the paper actually points to,
+> was never needed. Leishman's *Principles of Helicopter Aerodynamics* (Ch. 8–9) is the standard
+> textbook treatment of the same material.
 
 ---
 

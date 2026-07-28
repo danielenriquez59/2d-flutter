@@ -179,6 +179,50 @@ def test_forced_pitch_runs_and_stays_finite():
     assert r.stalled.any()
 
 
+def test_lb_core_matches_published_verification():
+    """The LB core must reproduce Chantharasenawong (2007) Fig. 2.9.
+
+    This is the load-bearing validation: it checks our Leishman-Beddoes
+    implementation against an independently published result, at that author's
+    baseline settings and WITHOUT the source paper's low-Mach modification. It
+    is what lets us attribute the remaining Fig. 3 discrepancy (theory.md §9.3)
+    to the modification rather than to the core model.
+    """
+    from twod_flutter.analysis.forced_pitch import run
+
+    case = Case.from_yaml("models/cases/naca0012_thesis_fig29.yaml")
+    r = run(case).last_cycle()
+
+    # Published: C_N peak 1.95, C_m min -0.30. Tolerance is 10%: the targets are
+    # read off a figure, so tighter would be false precision.
+    assert r.c_n.max() == pytest.approx(1.95, rel=0.10)
+    assert r.c_m.min() == pytest.approx(-0.30, rel=0.10)
+    # Peak must land in the right place, not just at the right height.
+    i = int(np.argmax(r.c_n))
+    assert 17.5 <= r.alpha_deg[i] <= 19.5
+
+
+def test_vortex_overshoot_modes_both_run():
+    """Both readings of Eq. (18) must integrate stably (theory.md §9.3)."""
+    from twod_flutter.analysis.forced_pitch import run
+
+    peaks = {}
+    for mode in ("additive", "feed"):
+        case = Case.from_yaml("models/cases/naca0012_forced_pitch.yaml")
+        case.airfoil.vortex_overshoot_mode = mode
+        case.forced_pitch.n_cycles = 2
+        peaks[mode] = run(case).last_cycle().c_n.max()
+    assert all(np.isfinite(v) for v in peaks.values())
+    # The two readings differ by under 5% -- which is why the ambiguity was
+    # ruled out as the cause of the Fig. 3 discrepancy.
+    assert abs(peaks["additive"] - peaks["feed"]) / peaks["additive"] < 0.05
+
+
+def test_airfoil_rejects_bad_overshoot_mode():
+    with pytest.raises(ValueError, match="vortex_overshoot_mode"):
+        Airfoil(vortex_overshoot_mode="nonsense")
+
+
 def test_config_rejects_unknown_keys(tmp_path):
     """A misspelled key must fail loudly, not silently fall back to a default."""
     p = tmp_path / "bad.yaml"
