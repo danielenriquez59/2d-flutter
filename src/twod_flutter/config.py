@@ -49,6 +49,10 @@ def _build(cls, data: dict[str, Any], *, context: str):
 
     Silently ignoring a misspelled key is how a validation run ends up quietly
     using a default instead of the value you set, so this is strict.
+
+    Numeric fields are also type-checked. YAML 1.1 requires a *signed* exponent,
+    so ``30.5e3`` parses as the string ``"30.5e3"`` rather than a float -- which
+    otherwise surfaces much later as an opaque matmul dtype error.
     """
     known = {f.name for f in fields(cls)}
     unknown = set(data) - known
@@ -57,7 +61,22 @@ def _build(cls, data: dict[str, Any], *, context: str):
             f"{context}: unknown key(s) {sorted(unknown)}; "
             f"valid keys are {sorted(known)}"
         )
-    return cls(**data)
+
+    numeric = {f.name for f in fields(cls) if f.type in ("float", "float | None")}
+    clean = dict(data)
+    for key in numeric & set(clean):
+        val = clean[key]
+        if val is None or isinstance(val, (int, float)):
+            continue
+        try:
+            clean[key] = float(val)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"{context}: {key!r} = {val!r} is not numeric. If this looks "
+                "like a float, note YAML needs a signed exponent: write "
+                "30.5e+3 or 30500.0, not 30.5e3."
+            ) from None
+    return cls(**clean)
 
 
 @dataclass

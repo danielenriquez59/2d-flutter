@@ -42,6 +42,8 @@ required limits of the indicial function ``phi``.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 import numpy as np
 
 from ..config import Airfoil
@@ -71,6 +73,7 @@ def ti_s(mach: float) -> float:
     return max(2.0 * mach, 1e-9)
 
 
+@lru_cache(maxsize=256)
 def _k_constants(mach: float) -> tuple[float, float, float, float]:
     """``(K_alpha, K_q, K_alphaM, K_qM)`` -- Leishman & Nguyen Eqs. (A2), (A6), (A12).
 
@@ -177,6 +180,49 @@ def potential_normal_force(
     """``C_N^p = C_N^C + C_N^I`` (paper Eq. 10) -- drives the pressure lag x9."""
     c_n_i, _ = impulsive_loads(x, alpha, q, af, mach)
     return circulatory_normal_force(x, af, mach) + c_n_i
+
+
+def evaluate(
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float
+) -> tuple[np.ndarray, float, float, float, float]:
+    """Everything the caller needs from the attached-flow block, in one pass.
+
+    Returns ``(dx, alpha_e, c_n_circ, c_n_impulsive, c_m_impulsive)``.
+
+    The individual accessors above each recompute :func:`derivatives`, which the
+    coupled 18-state right-hand side would otherwise evaluate six times per
+    step. This is the hot path; use it there.
+    """
+    bsq = beta(mach) ** 2
+    bta = np.sqrt(bsq)
+    ti = ti_s(mach)
+    k_a, k_q, k_am, k_qm = _k_constants(mach)
+    m = max(mach, 1e-9)
+
+    alpha_34 = alpha + 0.5 * q
+    dx = np.empty(N_STATES)
+    dx[0] = -af.b1 * bsq * x[0] + alpha_34
+    dx[1] = -af.b2 * bsq * x[1] + alpha_34
+    dx[2] = alpha - x[2] / (k_a * ti)
+    dx[3] = q - x[3] / (k_q * ti)
+    dx[4] = alpha - x[4] / (B3 * k_am * ti)
+    dx[5] = alpha - x[5] / (B4 * k_am * ti)
+    dx[6] = q - B5 * bsq * x[6]
+    dx[7] = q - x[7] / (k_qm * ti)
+
+    alpha_e = bsq * (af.A1 * af.b1 * x[0] + af.A2 * af.b2 * x[1])
+    c_n_circ = af.c_n_alpha_rad * alpha_e
+
+    c_n_i = (4.0 / m) * dx[2] + (1.0 / m) * dx[3]
+
+    a55 = -1.0 / (B3 * k_am * ti)
+    a66 = -1.0 / (B4 * k_am * ti)
+    c_m_i = (-1.0 / m) * (A3 * a55 * x[4] + A4 * a66 * x[5]) - (1.0 / m) * alpha
+    c_m_i += -(np.pi / 8.0 / bta) * B5 * bsq * x[6]
+    c_m_i += -(7.0 / (12.0 * m)) * dx[7]
+    c_m_i += (0.25 - af.x_ac) * c_n_circ
+
+    return dx, alpha_e, c_n_circ, c_n_i, c_m_i
 
 
 def time_constants(af: Airfoil, mach: float) -> dict[str, float]:

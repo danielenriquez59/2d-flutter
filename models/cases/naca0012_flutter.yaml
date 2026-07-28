@@ -1,0 +1,33 @@
+# Stall flutter bifurcation -- theory.md §10.3, paper Figs. 7-12 and Table 1.
+#
+# NACA0012 on the elastic mount of Ref. [3] (Dimitriadis & Li). The paper sweeps
+# freestream velocity and reports the bifurcation structure for three values of
+# the symmetry-breaking static moment C_m0.
+#
+# C_m0 is set here to 0.010, the value the paper found best matched experiment.
+# Override it from the runner (--cm0) to reproduce the 0 and 0.005 columns.
+
+name: naca0012_flutter
+kind: flutter
+
+airfoil: models/airfoils/naca0012.yaml
+structure: models/structures/dimitriadis_naca0012.yaml
+
+airfoil_overrides:
+  C_m0: 0.010
+
+flow:
+  V: 13.0               # placeholder; the sweep overrides this per point
+  sound_speed: 340.0
+  rho: 1.225            # NOT given by the paper -- assumed sea level
+
+reference:
+  source: "Shao et al. 2011, Table 1 and Figs. 7-12"
+  static_divergence_V: 17.7   # Ref. [3], quoted by the paper
+
+notes: >
+  The Hopf bifurcation is SUBCRITICAL: a stable equilibrium coexists with a
+  finite-amplitude limit cycle, so a small initial disturbance decays at
+  velocities where an LCO exists. The sweep must therefore start from several
+  disturbance amplitudes, and at V = 20 with C_m0 = 0.010 the paper reports
+  symmetric and asymmetric LCOs coexisting.

@@ -8,12 +8,22 @@ name: dimitriadis_naca0012
 chord: 0.3            # m          [paper]
 mass: 16.67           # kg/m       [paper]
 I_theta: 0.31         # kg*m^2/m   [paper, printed as "kg/m2" -- see theory.md §14.5]
-K_h: 30.5e3           # N/m        [paper, given as 30.5 N/mm]
+K_h: 30500.0          # N/m        [paper, given as 30.5 N/mm]
+                      # NB: write plain floats -- YAML 1.1 parses '30.5e3' as a
+                      # STRING (it requires a signed exponent, 30.5e+3).
 K_theta: 13.1         # N*m/rad    [paper]
 
-# Elastic axis at the quarter chord, implied by I_theta being defined about
-# 1/4 chord: a_h = -0.5 semi-chords from mid-chord.
-a_h: -0.5
+# Elastic-axis position, in semi-chords from mid-chord.
+#
+# The paper implies a_h = -0.5 (elastic axis at the quarter chord, since I_theta
+# is defined there). But that puts the elastic axis exactly under the lift, so
+# the moment arm is zero and the section can NEVER diverge -- while the paper
+# quotes a static divergence velocity of 17.7 m/s from its Ref. [3].
+#
+# Inverting the linear divergence balance K_theta = 0.5*rho*V^2*c*C_Nalpha*d
+# at V = 17.7 m/s gives d = 0.0368 m = 0.1226c, i.e. the elastic axis sits at
+# 0.373c and a_h = -0.255. That is the value used here.
+a_h: -0.2548
 
 # --- NOT given by the paper (the one outstanding item, theory.md §9) ---
 # The static mass moment S (equivalently the mass-centre offset x_theta) is
