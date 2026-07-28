@@ -50,9 +50,11 @@ def _build(cls, data: dict[str, Any], *, context: str):
     Silently ignoring a misspelled key is how a validation run ends up quietly
     using a default instead of the value you set, so this is strict.
 
-    Numeric fields are also type-checked. YAML 1.1 requires a *signed* exponent,
-    so ``30.5e3`` parses as the string ``"30.5e3"`` rather than a float -- which
-    otherwise surfaces much later as an opaque matmul dtype error.
+    Numeric fields are also coerced. YAML 1.1 requires a *signed* exponent, so
+    ``30.5e3`` parses as the string ``"30.5e3"`` rather than a float -- which
+    otherwise surfaces much later as an opaque matmul dtype error. Python's
+    ``float()`` accepts that spelling, so the value is recovered exactly;
+    anything genuinely non-numeric raises with a pointer to the quirk.
     """
     known = {f.name for f in fields(cls)}
     unknown = set(data) - known
