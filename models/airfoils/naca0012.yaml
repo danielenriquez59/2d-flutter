@@ -1,0 +1,49 @@
+# NACA 0012 -- Leishman-Beddoes constants at low Mach number (Ma < 0.3).
+#
+# Values marked [paper] are from Shao et al. 2011, theory.md §13.
+# Values marked [GAP] are NOT in the paper -- see theory.md §9. They are
+# canonical Leishman-Beddoes defaults and must be checked against Ref. [16]
+# (DYMORE manual) before results are trusted.
+
+name: NACA0012
+
+# --- [paper] Table, theory.md §13 --------------------------------------
+c_n_alpha: 0.108      # per DEGREE (~6.19 /rad, cf. 2*pi = 6.28)
+alpha1_deg: 15.25     # static separation break point
+S1_deg: 3.0           # attached-branch decay
+S2_deg: 2.3           # separated-branch decay
+T_p: 1.7              # leading-edge pressure lag
+T_f: 3.0              # separation-point lag
+T_v: 6.0              # vortex decay
+T_vl: 7.0             # vortex convection over chord
+T_b: 2.2              # low-Mach onset lag        (Eq. 17, Ref. [14])
+C_N1: 1.75            # low-Mach onset threshold  (Eq. 17, Ref. [14])
+B1: 1.0               # C_N overshoot magnitude   (Eq. 18)
+B2: 0.2               # C_m overshoot magnitude   (Eq. 20)
+C_m0: 0.0             # symmetric section
+
+# --- [GAP-2/3] sigma switches, undefined in the paper ------------------
+# In Beddoes' formulation these are switches keyed on separating-vs-
+# reattaching and stalled-vs-not. 1.0 everywhere disables the switching.
+sigma1_base: 1.0
+sigma1_reattach: 1.0
+sigma1_stalled: 1.0
+sigma2_base: 1.0
+sigma2_after_vortex: 1.0
+alpha1n_droop: 0.0
+
+# --- [GAP-1/4] canonical Leishman-Beddoes forms ------------------------
+A1: 0.3               # Wagner indicial approximation
+A2: 0.7
+b1: 0.14
+b2: 0.53
+K_alpha: 0.75         # impulsive time-constant factors
+K_q: 0.75
+K_M: 0.75
+K_Mq: 0.75
+eta: 0.95             # chord-force efficiency
+K0: 0.0               # aerodynamic-centre offset at f = 1
+K1: -0.135            # centre-of-pressure travel with separation
+K2: 0.04              # break shape near stall
+m_exp: 2.0
+x_ac: 0.25
