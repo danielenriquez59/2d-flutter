@@ -28,7 +28,7 @@ def kirchhoff_kn(f: float) -> float:
 def vortex_feed(c_n_circ: float, x10: float) -> float:
     """``c_v`` -- the strength of the vortex-induced normal force (Eq. 15).
 
-    **GAP-3.** Not defined in the paper. Canonical Leishman-Beddoes takes it as
+    Not defined in the source paper. Chantharasenawong (2007) gives it as
     the lift *deficit* caused by separation -- the circulatory normal force
     that Kirchhoff theory says the section is no longer carrying, which is what
     physically rolls up into the leading-edge vortex:
@@ -59,7 +59,7 @@ def vortex_feed_rate(
 def sigma2(loading: float, tau_v: float, shedding: bool, af: Airfoil) -> float:
     """Multiplier on the vortex time constant ``T_v`` (paper Eq. 15).
 
-    **GAP-3: CLOSED** by Chantharasenawong (2007) Table 2.4. Vortex lift decays
+    From Chantharasenawong (2007) Table 2.4. Vortex lift decays
     faster once the vortex has convected past the trailing edge, modelled by
     shrinking ``T_v``:
 
@@ -133,6 +133,42 @@ def vortex_shape(tau: float, af: Airfoil) -> float:
     if arg >= 0.5 * np.pi:
         return 0.0
     return np.cos(arg) ** 2
+
+
+def vortex_shape_gradient(tau: float, af: Airfoil) -> float:
+    """d(V_x)/d(tau) -- analytic derivative of Eq. (19).
+
+    Since d(tau)/ds = 1 (Eq. 14), this doubles as d(V_x)/ds.
+    """
+    if tau <= 0.0:
+        return 0.0
+    if tau <= af.T_v:
+        u = np.pi * tau / (2.0 * af.T_v)
+        su = np.sin(u)
+        if su <= 0.0:
+            return 0.0
+        return 1.5 * np.sqrt(su) * np.cos(u) * np.pi / (2.0 * af.T_v)
+    w = np.pi * (tau - af.T_v) / af.T_vl
+    if w >= 0.5 * np.pi:
+        return 0.0
+    return -np.sin(2.0 * w) * np.pi / af.T_vl
+
+
+def overshoot_rate(
+    x10: float, dx10_ds: float, f_static: float, df_static_ds: float,
+    tau: float, af: Airfoil,
+) -> float:
+    """d(dC_N^v)/ds for the "feed" reading of Eq. (18).
+
+    Writing the overshoot as G = B1 * (x10 - f_static) * V_x, the product
+    rule gives
+
+        dG/ds = B1 * [ (dx10/ds - df_static/ds) * V_x
+                       + (x10 - f_static) * dV_x/ds ]
+    """
+    v_x = vortex_shape(tau, af)
+    dv_x = vortex_shape_gradient(tau, af)
+    return af.B1 * ((dx10_ds - df_static_ds) * v_x + (x10 - f_static) * dv_x)
 
 
 def normal_force_overshoot(

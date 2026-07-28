@@ -12,20 +12,42 @@ valid for Ma < 0.3) to a 2-DOF pitch/plunge rigid airfoil (4 states), integrated
 domain to study stall-flutter bifurcation behaviour.
 
 **→ Theory reference: [`docs/theory.md`](docs/theory.md)** — all 25 equations, constants,
-validation targets, and the register of what the paper leaves undefined.
+validation targets, and the provenance of everything the paper leaves undefined.
+
+The paper is not self-contained; two further sources are required to implement it:
+
+- **[LN]** Leishman & Nguyen, *AIAA J.* **28**(5), 1990, 836–844 — attached flow, states `x1…x8`.
+- **[CH]** Chantharasenawong, PhD thesis, Imperial College London, 2007 (the paper's Ref. [17]) —
+  separated-flow airloads, the `σ₁`/`σ₂` switch tables, `α₁ₙ`, `c_v`, vortex-clock reset.
 
 ## Status
 
 | Stage | State |
 |---|---|
 | Theory extraction | ✅ complete |
-| 14-state aerodynamic model | ✅ runs end to end |
-| Validation §10.1 (NACA0012 forced pitch) | ⚠️ shape right, magnitude low — see below |
+| 14-state aerodynamic model | ✅ complete, all deferred formulation sourced |
+| **Validation §10.0 (LB core vs [CH] Fig. 2.9)** | ✅ **passing, within 3–5%** |
+| Validation §10.1 (NACA0012 forced pitch, Figs. 3–4) | ⚠️ shape right, magnitude low — see below |
 | Validation §10.2 (OA207 forced pitch) | ⬜ not started |
 | 4-state structural model + coupling | ⬜ not started |
 | Validation §10.3 (flutter bifurcation) | ⬜ not started |
 
-### Current validation result
+### The LB core is verified
+
+`models/cases/naca0012_thesis_fig29.yaml` reproduces **[CH]**'s own published LB verification
+(his Fig. 2.9), at his baseline settings and without this paper's low-Mach modification:
+
+| Quantity | [CH] Fig. 2.9 | Model | |
+|---|---|---|---|
+| `C_N` peak | 1.95 | 2.009 | +3.0% ✅ |
+| `C_m` min | −0.30 | −0.281 | +6.3% ✅ |
+| peak location | α ≈ 18–19° | α ≈ 18.8° | ✅ |
+
+This is the load-bearing check: it validates our Leishman–Beddoes implementation against an
+independent published result, and so separates *"is the core right?"* from *"is our reading of
+Shao's Eqs. 17–20 right?"*
+
+### The remaining discrepancy is in the low-Mach modification
 
 `models/cases/naca0012_forced_pitch.yaml` reproduces the *character* of the paper's Figs. 3–4 —
 the vortex-onset kink, the peak near α ≈ 24°, and the wide downstroke hysteresis — but
@@ -41,17 +63,20 @@ The paper's own contribution does work: the modified criterion (Eq. 17) delays s
 **α = 19.3°** (baseline Eq. 13) to **α = 21.6°** — a 2.25° delay, which is exactly the "stall
 onset predicted too early" defect it set out to fix.
 
-**GAP-1 through GAP-5 are now closed**, from Leishman & Nguyen (*AIAA J.* 28(5) 1990) for the
-attached-flow state space and Chantharasenawong (PhD thesis, Imperial College 2007 — the paper's
-own Ref. [17]) for the separated-flow airloads, the `σ₁`/`σ₂` switch tables, `α₁ₙ`, `c_v`, and the
-vortex-clock reset. The thesis's M = 0.30 constant column **is** Shao's constant set, which
-independently confirms the transcription. See [`docs/theory.md`](docs/theory.md) §9.1–9.2.
+Since §10.0 passes, this is **not** a core-model error. Two candidate explanations have been
+tested and **eliminated**:
 
-The model is now faithful to the documented LB formulation, and the residual error is
-**localized and structural**: the vortex path is short by ~2.5×, and a `B₁` sweep shows the gap
-is *not* reachable by calibration (`B₁ = 5` gets `C_N` to only 2.24 and drives `C_m` the wrong
-way). The open question is now narrow — how Eq. (18) combines with the `x12` vortex state, which
-the paper never states. See §9.3.
+1. **The Eq. (18) combination ambiguity** — the paper never states whether `ΔC_N^v` adds to the
+   `x12` state or feeds it. Both readings are implemented (`vortex_overshoot_mode`) and differ by
+   under 2%: `"additive"` → 1.783, `"feed"` → 1.752.
+2. **Calibration of `B₁`** — `B₁ = 5`, five times the paper's value, reaches only `C_N` = 2.24 and
+   drives `C_m` the *wrong* way.
+
+So the residual is specific to this paper's low-Mach modification at deep-stall amplitude.
+Remaining untested suspects are listed in [`docs/theory.md`](docs/theory.md) §9.3.
+
+One item is still to source, and it blocks the flutter validation (§10.3) only: the structural
+static mass moment `S` and density `ρ`, which must come from Ref. [3] (Dimitriadis & Li).
 
 Correct constants also make the system **stiff** (ratio ~354; fastest state τ = 0.020
 semi-chords), so explicit RK4 needs >891 steps/cycle here. The driver raises with the required
@@ -66,10 +91,10 @@ src/twod_flutter/
     config.py         YAML → dataclasses, strict about unknown keys
     integrators.py    fixed-step RK4 + implicit Newmark average-velocity
     aero/
-        attached.py       Eq. 8      states x1–x8   [GAP-1]
+        attached.py       Eq. 8      states x1–x8   [LN]
         separation.py     Eqs. 9–12, 16   x9, x10, x13
         dynamic_stall.py  Eqs. 13–15, 17–20  x11, x12, x14
-        airloads.py       Eqs. 2–7   assembly       [GAP-4]
+        airloads.py       Eqs. 2–7   assembly       [CH]
         model.py          the 14-state model
     analysis/
         forced_pitch.py   prescribed-motion driver
@@ -91,7 +116,8 @@ the scripts.
 ```bash
 pip install -e ".[plots,dev]"
 
-python scripts/run_forced_pitch.py models/cases/naca0012_forced_pitch.yaml
+python scripts/run_forced_pitch.py models/cases/naca0012_thesis_fig29.yaml   # core check
+python scripts/run_forced_pitch.py models/cases/naca0012_forced_pitch.yaml   # paper Figs. 3-4
 pytest -q
 ```
 

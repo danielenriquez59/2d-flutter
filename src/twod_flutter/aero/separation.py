@@ -30,10 +30,32 @@ def kirchhoff_f(alpha_rad: float, alpha1_deg: float, af: Airfoil) -> float:
     return 0.04 + 0.66 * np.exp(max((alpha1_deg - a) / af.S2_deg, -50.0))
 
 
+def kirchhoff_f_gradient(alpha_rad: float, alpha1_deg: float, af: Airfoil) -> float:
+    """d(f)/d(alpha) per RADIAN -- analytic derivative of Eq. (11).
+
+    Needed by the "feed" reading of Eq. (18) (theory.md §9.3), where the static separation point
+    sits inside a quantity that must be differentiated with respect to time.
+    Both branches differentiate to a multiple of the branch value itself:
+
+        |a| <= a1 :  df/d|a| = -(1 - f) / S1
+        |a| >  a1 :  df/d|a| = -(f - 0.04) / S2
+
+    with d|a|/da = sign(a), plus a degrees-to-radians conversion on the way out.
+    """
+    a_deg = abs(alpha_rad) * RAD2DEG
+    f = kirchhoff_f(alpha_rad, alpha1_deg, af)
+    if a_deg <= alpha1_deg:
+        df_dabs = -(1.0 - f) / af.S1_deg
+    else:
+        df_dabs = -(f - 0.04) / af.S2_deg
+    sign = 1.0 if alpha_rad >= 0.0 else -1.0
+    return df_dabs * sign * RAD2DEG
+
+
 def alpha1n(x10: float, loading: float, af: Airfoil) -> float:
     """Effective break angle for the separation correlation, in degrees.
 
-    **GAP-2: CLOSED** by Chantharasenawong (2007) Eq. (2.54):
+    Not defined in the source paper; from Chantharasenawong (2007) Eq. (2.54):
 
         alpha_1 = alpha_10                                  if alpha*alpha' >= 0
         alpha_1 = alpha_10 - (1 - x10)^0.25 * delta_alpha1   if alpha*alpha' < 0
@@ -55,7 +77,7 @@ def sigma1(
 ) -> float:
     """Multiplier on the separation time constant ``T_f`` (paper Eq. 12).
 
-    **GAP-2: CLOSED** by Chantharasenawong (2007) Table 2.3 and Eq. (2.55).
+    Not defined in the source paper; from Chantharasenawong (2007) Table 2.3 and Eq. (2.55).
     ``T_f`` is a switch on flow state, not a constant -- the separation point
     moves at different speeds depending on where the shed vortex is and whether
     the section is loading or unloading.

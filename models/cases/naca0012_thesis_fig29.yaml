@@ -1,0 +1,47 @@
+# Independent verification of the Leishman-Beddoes CORE.
+#
+# Reproduces Fig. 2.9 of Chantharasenawong (PhD thesis, Imperial College 2007),
+# which shows his own validated LB implementation against experimental data
+# (his Ref. [7]) and Leishman's published numerical results (his Ref. [8]).
+#
+# Why this case matters: it exercises the LB model at the *baseline* settings
+# the thesis uses, WITHOUT Shao's low-Mach modification. It therefore isolates
+# "is our LB core right?" from "is our reading of Shao's Eqs. 17-20 right?" --
+# a distinction the Shao validation case cannot make on its own.
+#
+# Motion: alpha = 10 + 9 sin(0.1 S) deg, where S = 2Vt/c is in semi-chords.
+# The argument 0.1*S = 0.2*V*t/c gives omega = 0.2 V/c, hence
+# k = omega*b/V = omega*c/(2V) = 0.1.
+
+name: naca0012_thesis_fig29
+kind: forced_pitch
+
+airfoil: models/airfoils/naca0012.yaml
+
+airfoil_overrides:
+  # The thesis runs at M = 0.30, where its Table 2.1 gives C_N1 = 1.45.
+  # Shao's 1.75 belongs to the low-Mach modification and does not apply here.
+  C_N1: 1.45
+
+flow:
+  mach: 0.29           # 0.30 exactly is rejected as outside the model's range
+  sound_speed: 340.0
+  rho: 1.225
+
+forced_pitch:
+  alpha_mean_deg: 10.0
+  alpha_amp_deg: 9.0
+  k: 0.1
+  n_cycles: 6
+  steps_per_cycle: 3000
+
+reference:
+  chord: 0.55
+  source: "Chantharasenawong (2007) Fig. 2.9 -- moderate stall verification"
+  c_n_peak: 1.95       # read off his figure, near alpha = 18-19 deg
+  c_m_min: -0.30       # near alpha = 19 deg
+
+notes: >
+  Moderate stall, not deep stall: alpha spans 1 to 19 deg. The thesis notes a
+  known discrepancy during reattachment that is also present in Leishman's own
+  published results, so do not chase the reattachment branch.

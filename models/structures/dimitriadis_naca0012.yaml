@@ -15,7 +15,7 @@ K_theta: 13.1         # N*m/rad    [paper]
 # 1/4 chord: a_h = -0.5 semi-chords from mid-chord.
 a_h: -0.5
 
-# --- GAP-7: NOT given by the paper -------------------------------------
+# --- NOT given by the paper (the one outstanding item, theory.md §9) ---
 # The static mass moment S (equivalently the mass-centre offset x_theta) is
 # never stated, and the flutter result depends on it. Must be recovered from
 # Ref. [3]. x_theta = 0 puts the mass centre on the elastic axis, which

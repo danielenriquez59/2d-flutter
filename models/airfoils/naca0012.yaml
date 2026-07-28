@@ -1,9 +1,9 @@
 # NACA 0012 -- Leishman-Beddoes constants at low Mach number (Ma < 0.3).
 #
 # Values marked [paper] are from Shao et al. 2011, theory.md §13.
-# Values marked [GAP] are NOT in the paper -- see theory.md §9. They are
-# canonical Leishman-Beddoes defaults and must be checked against Ref. [16]
-# (DYMORE manual) before results are trusted.
+# The paper omits several constants; those are sourced from Leishman & Nguyen
+# (AIAA J. 28(5) 1990) and Chantharasenawong (PhD thesis, Imperial 2007) and
+# marked accordingly. See theory.md §9 for provenance.
 
 name: NACA0012
 
@@ -22,13 +22,13 @@ B1: 1.0               # C_N overshoot magnitude   (Eq. 18)
 B2: 0.2               # C_m overshoot magnitude   (Eq. 20)
 C_m0: 0.0             # symmetric section
 
-# --- [GAP-2/3 CLOSED] Chantharasenawong (2007) -------------------------
+# --- from Chantharasenawong (2007) -------------------------------------
 # sigma1 and sigma2 are switch tables (his Tables 2.3, 2.4) keyed on vortex
 # time and loading direction; they live in code, not here. The only constant
 # they need is the break-angle droop used during unloading (his Eq. 2.54).
 delta_alpha1_deg: 2.103   # his Table 2.1 at M=0.30: 0.0367 rad
 
-# --- [GAP-1 CLOSED] Leishman & Nguyen, AIAA J. 28(5) 1990 --------------
+# --- from Leishman & Nguyen, AIAA J. 28(5) 1990 ------------------------
 # Circulatory indicial constants (their p. 839, attributed to Beddoes).
 # The non-circulatory constants K_alpha, K_q, K_alphaM, K_qM are Mach-dependent
 # functions given by their Eqs. (A2), (A6), (A12) -- not free parameters, so
@@ -38,7 +38,7 @@ A2: 0.7
 b1: 0.14
 b2: 0.53
 
-# --- [GAP-4 CLOSED] Chantharasenawong (2007) Eqs. 2.7-2.9, Table 2.1 ---
+# --- from Chantharasenawong (2007) Eqs. 2.7-2.9, Table 2.1 -------------
 # His M=0.30 column IS Shao's constant set: C_Nalpha = 6.1879/rad = 0.108/deg,
 # alpha_10 = 0.2662 rad = 15.25 deg, S1 = 0.0524 rad = 3.0 deg, T_P = 1.7,
 # T_v0 = 6.0, T_vl = 7.0. Direct confirmation of the values above.
