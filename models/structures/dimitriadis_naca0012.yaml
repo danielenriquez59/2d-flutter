@@ -1,27 +1,45 @@
 # Elastic mount for the NACA0012 stall-flutter experiment.
 #
-# Parameters from Shao et al. 2011 §5.2, which takes the experiment from
-# Ref. [3] (Dimitriadis & Li). See theory.md §10.3.
+# Values now taken directly from the primary source, Table 1 of
+#   Dimitriadis G., Li J., "Bifurcation Behavior of Airfoil Undergoing Stall
+#   Flutter Oscillations in Low-Speed Wind Tunnel", AIAA Journal 47(11), 2009.
+# Shao et al. quote this rig but transcribe it inconsistently -- see below.
+#
+# Table 1 gives TOTAL (not per-span) quantities for a 0.9 m span:
+#   wing span 0.9 m,  chord 0.3 m,  pitch axis 0.115 m behind the leading edge,
+#   wing assembly 15 kg,  I about pitch axis 0.31 kg m^2,
+#   plunge stiffness 30.5 N/mm,  pitch stiffness 13.1 N m/rad.
+#
+# The aerodynamic loads in Eqs. (21)-(22) are per unit span, so every structural
+# quantity must be per unit span too. Shao converts the MASS (15/0.9 = 16.67
+# kg/m) but leaves I_theta, K_h and K_theta at their total values -- a mixed-
+# units set. Dividing all four by the 0.9 m span, as done here, is self
+# consistent and leaves the frequency ratio unchanged.
 
 name: dimitriadis_naca0012
 
-chord: 0.3            # m          [paper]
-mass: 16.67           # kg/m       [paper]
-I_theta: 0.31         # kg*m^2/m   [paper, printed as "kg/m2" -- see theory.md §14.5]
-K_h: 30.5e3           # N/m        [paper, given as 30.5 N/mm]
-K_theta: 13.1         # N*m/rad    [paper]
+chord: 0.3            # m                    [Table 1]
+mass: 16.6667         # kg/m       = 15 / 0.9
+I_theta: 0.344444     # kg*m^2/m   = 0.31 / 0.9   about the PITCH AXIS
+K_h: 33888.9          # N/m per m  = 30500 / 0.9
+K_theta: 14.5556      # N*m/rad per m = 13.1 / 0.9
 
-# Elastic axis at the quarter chord, implied by I_theta being defined about
-# 1/4 chord: a_h = -0.5 semi-chords from mid-chord.
-a_h: -0.5
+# Elastic axis, in semi-chords from mid-chord. Table 1 puts the pitch axis at
+# 0.115 m behind the leading edge, i.e. 0.3833c:
+#     a_h = (0.115 - 0.15) / 0.15 = -0.2333
+# Our earlier estimate, obtained by inverting the divergence balance against the
+# 17.7 m/s that Shao quotes, was -0.2548 -- within 3% of the measured value.
+a_h: -0.2333
 
-# --- NOT given by the paper (the one outstanding item, theory.md §9) ---
-# The static mass moment S (equivalently the mass-centre offset x_theta) is
-# never stated, and the flutter result depends on it. Must be recovered from
-# Ref. [3]. x_theta = 0 puts the mass centre on the elastic axis, which
-# decouples the inertial terms -- almost certainly NOT what the experiment had.
-x_theta: 0.0
-
-# The paper reports no structural damping; all dissipation is aerodynamic.
+# Structural damping. The rig was "designed to allow pitch and plunge motion of
+# the wing model without friction and with known structural stiffness"
+# (Dimitriadis & Li, Sec. II), so near-zero damping is the intended design and
+# Shao's omission of it is faithful to the experiment.
 C_h: 0.0
 C_theta: 0.0
+
+# Mass-centre offset from the elastic axis, in semi-chords. Still not stated in
+# either source. Shown to have no effect on the stability onset (theory.md
+# 10.3.2), since divergence is inertia-independent and the 6.9 frequency ratio
+# closes the classical coalescence route.
+x_theta: 0.0

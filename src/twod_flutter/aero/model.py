@@ -53,9 +53,19 @@ class Airloads:
 class LBModel:
     """Modified Leishman-Beddoes model for one airfoil at one Mach number."""
 
-    def __init__(self, airfoil: Airfoil, mach: float):
+    def __init__(
+        self, airfoil: Airfoil, mach: float, a_h: float = attached.QUARTER_CHORD_AH
+    ):
+        """``a_h`` is the pitch-axis offset from mid-chord, in semi-chords.
+
+        It enters only through the 3/4-chord incidence (see
+        :func:`attached.pitch_rate_factor`). The default, -0.5, is the quarter
+        chord assumed by [LN] and by the forced-pitch experiments, so
+        prescribed-motion cases are unaffected.
+        """
         self.af = airfoil
         self.mach = mach
+        self.a_h = a_h
 
     # -- initial condition ------------------------------------------------
     def initial_state(self, alpha0: float = 0.0) -> np.ndarray:
@@ -90,12 +100,12 @@ class LBModel:
         af = self.af
         dx = np.zeros(N_AERO)
 
-        # -- attached flow, x1..x8 ---------------------------------------
-        dx[:8] = attached.derivatives(x[:8], alpha, q, af, self.mach)
-
-        alpha_e = attached.alpha_effective(x[:8], af, self.mach)
-        c_n_circ = af.c_n_alpha_rad * alpha_e
-        c_n_pot = attached.potential_normal_force(x[:8], alpha, q, af, self.mach)
+        # -- attached flow, x1..x8 (single pass; see attached.evaluate) ----
+        dxa, alpha_e, c_n_circ, c_n_i, _ = attached.evaluate(
+            x[:8], alpha, q, af, self.mach, self.a_h
+        )
+        dx[:8] = dxa
+        c_n_pot = c_n_circ + c_n_i
 
         # -- x9: leading-edge pressure lag --------------------------------
         dx[I_X9] = sep.pressure_lag_derivative(x[I_X9], c_n_pot, af)
@@ -171,9 +181,10 @@ class LBModel:
         """Assemble the airload coefficients, Eqs. (2)-(7)."""
         af = self.af
 
-        alpha_e = attached.alpha_effective(x[:8], af, self.mach)
-        c_n_i, c_m_i = attached.impulsive_loads(x[:8], alpha, q, af, self.mach)
-        c_n_pot = attached.potential_normal_force(x[:8], alpha, q, af, self.mach)
+        _, alpha_e, c_n_circ, c_n_i, c_m_i = attached.evaluate(
+            x[:8], alpha, q, af, self.mach, self.a_h
+        )
+        c_n_pot = c_n_circ + c_n_i
 
         f_delayed = float(np.clip(x[I_X10], 0.0, 1.0))
         f_static = sep.kirchhoff_f(alpha, af.alpha1_deg, af)  # static ref, Eq. (18)

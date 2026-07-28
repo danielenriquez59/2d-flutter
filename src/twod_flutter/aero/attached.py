@@ -42,6 +42,8 @@ required limits of the indicial function ``phi``.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 import numpy as np
 
 from ..config import Airfoil
@@ -57,6 +59,28 @@ A3, A4, B3, B4 = 1.5, -0.5, 0.25, 0.1
 #: Circulatory pitch-rate moment pole, their Appendix C (A10).
 B5 = 0.5
 
+#: Pitch-axis offset assumed by [LN]: the quarter chord, a_h = -0.5.
+QUARTER_CHORD_AH = -0.5
+
+
+def pitch_rate_factor(a_h: float) -> float:
+    """Coefficient on ``q/2`` in the 3/4-chord incidence, for a pitch axis at ``a_h``.
+
+    [LN] write ``alpha_3/4 = alpha + q/2``, which is the downwash a pitch rate
+    induces at the 3/4-chord point **when the pitch axis is the quarter chord**.
+    For a general axis the moment arm changes:
+
+        pitch axis at   x_ea = b(1 + a_h)   from the leading edge
+        3/4-chord at    x    = 1.5 b
+        arm             = 1.5b - b(1 + a_h) = b(0.5 - a_h)
+
+    so the induced incidence is ``theta_dot * b(0.5 - a_h) / V``. With
+    ``q = theta_dot*c/V = 2*b*theta_dot/V`` this is ``(0.5 - a_h) * q/2``.
+
+    ``a_h = -0.5`` returns 1.0 and recovers [LN] exactly.
+    """
+    return 0.5 - a_h
+
 
 def beta(mach: float) -> float:
     """Prandtl-Glauert compressibility factor ``sqrt(1 - M^2)``."""
@@ -71,6 +95,7 @@ def ti_s(mach: float) -> float:
     return max(2.0 * mach, 1e-9)
 
 
+@lru_cache(maxsize=256)
 def _k_constants(mach: float) -> tuple[float, float, float, float]:
     """``(K_alpha, K_q, K_alphaM, K_qM)`` -- Leishman & Nguyen Eqs. (A2), (A6), (A12).
 
@@ -94,14 +119,16 @@ def _k_constants(mach: float) -> tuple[float, float, float, float]:
 
 
 def derivatives(
-    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float,
+    a_h: float = QUARTER_CHORD_AH,
 ) -> np.ndarray:
     """d(x1..x8)/ds for the scaled states."""
     bsq = beta(mach) ** 2
     ti = ti_s(mach)
     k_a, k_q, k_am, k_qm = _k_constants(mach)
 
-    alpha_34 = alpha + 0.5 * q  # Leishman & Nguyen, below Eq. (18)
+    # Leishman & Nguyen, below Eq. (18), generalised off the quarter chord.
+    alpha_34 = alpha + pitch_rate_factor(a_h) * 0.5 * q
 
     dx = np.empty(N_STATES)
     # Circulatory (Eq. 17), driven by the 3/4-chord incidence.
@@ -140,7 +167,8 @@ def circulatory_normal_force(x: np.ndarray, af: Airfoil, mach: float) -> float:
 
 
 def impulsive_loads(
-    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float,
+    a_h: float = QUARTER_CHORD_AH,
 ) -> tuple[float, float]:
     """``(C_N^I, C_m^I)`` -- the attached-flow loads carried by superscript I.
 
@@ -151,7 +179,7 @@ def impulsive_loads(
     bta = beta(mach)
     ti = ti_s(mach)
     k_a, k_q, k_am, k_qm = _k_constants(mach)
-    dx = derivatives(x, alpha, q, af, mach)
+    dx = derivatives(x, alpha, q, af, mach, a_h)
 
     # -- normal force: C_N^I = (4/M)*xdot3 + (1/M)*xdot4 ------------------
     c_n_i = (4.0 / m) * dx[2] + (1.0 / m) * dx[3]
@@ -172,11 +200,56 @@ def impulsive_loads(
 
 
 def potential_normal_force(
-    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float,
+    a_h: float = QUARTER_CHORD_AH,
 ) -> float:
     """``C_N^p = C_N^C + C_N^I`` (paper Eq. 10) -- drives the pressure lag x9."""
-    c_n_i, _ = impulsive_loads(x, alpha, q, af, mach)
+    c_n_i, _ = impulsive_loads(x, alpha, q, af, mach, a_h)
     return circulatory_normal_force(x, af, mach) + c_n_i
+
+
+def evaluate(
+    x: np.ndarray, alpha: float, q: float, af: Airfoil, mach: float,
+    a_h: float = QUARTER_CHORD_AH,
+) -> tuple[np.ndarray, float, float, float, float]:
+    """Everything the caller needs from the attached-flow block, in one pass.
+
+    Returns ``(dx, alpha_e, c_n_circ, c_n_impulsive, c_m_impulsive)``.
+
+    The individual accessors above each recompute :func:`derivatives`, which the
+    coupled 18-state right-hand side would otherwise evaluate six times per
+    step. This is the hot path; use it there.
+    """
+    bsq = beta(mach) ** 2
+    bta = np.sqrt(bsq)
+    ti = ti_s(mach)
+    k_a, k_q, k_am, k_qm = _k_constants(mach)
+    m = max(mach, 1e-9)
+
+    alpha_34 = alpha + pitch_rate_factor(a_h) * 0.5 * q
+    dx = np.empty(N_STATES)
+    dx[0] = -af.b1 * bsq * x[0] + alpha_34
+    dx[1] = -af.b2 * bsq * x[1] + alpha_34
+    dx[2] = alpha - x[2] / (k_a * ti)
+    dx[3] = q - x[3] / (k_q * ti)
+    dx[4] = alpha - x[4] / (B3 * k_am * ti)
+    dx[5] = alpha - x[5] / (B4 * k_am * ti)
+    dx[6] = q - B5 * bsq * x[6]
+    dx[7] = q - x[7] / (k_qm * ti)
+
+    alpha_e = bsq * (af.A1 * af.b1 * x[0] + af.A2 * af.b2 * x[1])
+    c_n_circ = af.c_n_alpha_rad * alpha_e
+
+    c_n_i = (4.0 / m) * dx[2] + (1.0 / m) * dx[3]
+
+    a55 = -1.0 / (B3 * k_am * ti)
+    a66 = -1.0 / (B4 * k_am * ti)
+    c_m_i = (-1.0 / m) * (A3 * a55 * x[4] + A4 * a66 * x[5]) - (1.0 / m) * alpha
+    c_m_i += -(np.pi / 8.0 / bta) * B5 * bsq * x[6]
+    c_m_i += -(7.0 / (12.0 * m)) * dx[7]
+    c_m_i += (0.25 - af.x_ac) * c_n_circ
+
+    return dx, alpha_e, c_n_circ, c_n_i, c_m_i
 
 
 def time_constants(af: Airfoil, mach: float) -> dict[str, float]:

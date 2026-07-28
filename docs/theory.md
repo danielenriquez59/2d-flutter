@@ -562,9 +562,118 @@ does not say what was changed for OA207 — expect this case to require its own 
 | `I_θ` | 0.31 kg/m² *(as printed)* |
 | `C_m0` | 0, 0.005, 0.010 |
 
-Elastic axis is at the **quarter chord** (implied by `I_θ` being defined about 1/4 chord), i.e.
-`a_h = −0.5`. **`S`, `x_θ` and `ρ` are not given** — the one outstanding item (§9), to be
-recovered from Ref. [3] (Dimitriadis & Li), which is the source of the experiment.
+#### The elastic axis, and a gap in Eq. (24)
+
+`I_θ` is defined about the quarter chord, which implies the elastic axis sits there
+(`a_h = −0.5`). But that placement puts the elastic axis **directly under the lift**, so the
+lift has zero moment arm about it and the section can never diverge — while the paper quotes a
+static divergence velocity of **17.7 m/s** from its own Ref. [3].
+
+The two statements are incompatible, and the resolution identifies a missing term. Eq. (24)
+gives the pitching moment as `Q_θ = ½ρV²c²·C_m` alone, with `C_m` taken about the quarter
+chord. If the elastic axis is *not* at the quarter chord, the lift contributes an additional
+moment about it, and Eq. (24) is missing that transfer:
+
+```
+Q_θ = ½ρV²c²·C_m  +  ½ρV²c·C_L·d,      d = b(a_h + 0.5)
+```
+
+With `a_h = −0.5` the added term vanishes and Eq. (24) is recovered exactly, so this is a
+strict generalisation rather than a change of model.
+
+**This recovers one of the two missing structural parameters from a number the paper does
+state.** Inverting the linear divergence balance `K_θ = ½ρV²c·C_Nα·d` at V = 17.7 m/s:
+
+```
+d    = 13.1 / (½ × 1.225 × 17.7² × 0.3 × 6.1879) = 0.03677 m = 0.1226 c
+x_ea = 0.25c + 0.1226c = 0.373 c
+a_h  = d/b − 0.5 = −0.2548
+```
+
+Linearising the full 18-state system with that value returns divergence at **17.70 m/s**,
+confirming the calibration end to end rather than only through the closed-form balance.
+
+**Still outstanding:** the static mass moment `S` (equivalently `x_θ`) and the density `ρ`
+(assumed 1.225 kg/m³). `x_θ = 0` puts the mass centre on the elastic axis, leaving the two
+degrees of freedom coupled only aerodynamically — which is legitimate for a stall-flutter rig,
+since stall flutter is fundamentally a torsional instability, but it is an assumption.
+
+#### No Hopf bifurcation is present in the linearised system
+
+Linearising the coupled system about the equilibrium at each velocity gives, for
+`C_m0 = 0`:
+
+| V (m/s) | max Re(λ) | f (Hz) |
+|---|---|---|
+| 10 | −0.106 | 6.80 |
+| 14 | −0.206 | 6.81 |
+| 17 | −0.290 | 6.81 |
+| 18 | **+1.070** | **0.00** |
+
+Both oscillatory modes stay damped — and damping *increases* monotonically with V — right up
+to 17.7 m/s, where a **real** eigenvalue crosses zero. That is static divergence, not a Hopf.
+
+This is physically consistent: the two modes sit at 6.81 Hz (plunge) and 1.02 Hz (torsion), a
+ratio of 6.6, and they never coalesce, so classical bending–torsion flutter is impossible for
+this rig. It is also consistent with stall flutter being a genuinely *nonlinear* phenomenon —
+the negative aerodynamic damping that drives it appears only once the section oscillates into
+stall, which cannot happen at the linearised equilibrium where the flow is fully attached.
+
+**The paper, however, reports a subcritical Hopf at V = 12 m/s** — an oscillatory instability
+of the equilibrium. Our model does not reproduce it.
+
+#### 10.3.1 Nonlinear sweep result
+
+`scripts/run_bifurcation.py`, `C_m0 = 0.010`, disturbances of 1° and 20°, 15 s per point:
+
+| V (m/s) | θ₀ = 1° | θ₀ = 20° | LCO amplitude (deg p-p) | equilibrium offset (deg) |
+|---|---|---|---|---|
+| 10 | decays | **LCO** | 107.6 | +0.36 |
+| 12 | decays | **LCO** | 102.1 | +0.65 |
+| 14 | decays | **LCO** | 94.6 | +1.31 |
+| 16 | decays | **LCO** | 89.6 | +3.81 |
+| 18 | **LCO** | **LCO** | 85.8 | — |
+| 20 | **LCO** | **LCO** | 83.4 | — |
+| 26 | **LCO** | **LCO** | 79.7 | — |
+
+**What matches.** Three qualitative features of the paper come out correctly:
+
+1. **Subcriticality is reproduced.** Below 18 m/s a 1° disturbance decays while a 20° one settles
+   onto a large-amplitude limit cycle. A stable equilibrium coexisting with a stable LCO is
+   exactly the signature of a subcritical bifurcation, and it is why a single-initial-condition
+   sweep would have found nothing.
+2. **The transition at 18 m/s** — where even a 1° disturbance grows — coincides with the
+   divergence speed of 17.7 m/s derived above. Above it the equilibrium is unstable, so every
+   trajectory departs.
+3. **The static offset grows with velocity and blows up at divergence**: +0.36° at V = 10 rising
+   to +3.81° at V = 16, consistent with `C_m0 = 0.010` acting against a pitch stiffness that the
+   aerodynamics is progressively cancelling.
+
+**What does not match.**
+
+| | Paper | Model |
+|---|---|---|
+| Symmetric LCO onset | 12 m/s (Hopf) | ≤ 10 m/s, no Hopf |
+| Mechanism of onset | subcritical Hopf, dynamic stall | finite-amplitude only; divergence at 17.7 |
+| Asymmetric LCO onset (`C_m0`=0.010) | 18.4 m/s | not observed |
+| LCO amplitude | ~40° p-p (Fig. 10) | 80–108° p-p |
+
+**Amplitude is over-predicted by roughly 2.5×, and this is very likely inherited from §10.1.**
+The pitching moment there is 48% low — a larger relative error than `C_N`. `C_m` *is* the pitch
+damping: LCO amplitude is set by where positive and negative aerodynamic work over the cycle
+balance, so under-predicting the restoring moment lets the cycle grow further before it closes.
+An amplitude error of this size is the expected consequence, which makes the flutter result a
+*downstream* symptom of the unresolved §9.3 discrepancy rather than an independent defect.
+
+The absent asymmetric LCO is plausibly the same thing: our offset is ~1–2° on an 80–108° cycle,
+a ratio of 0.02. If the amplitude were correct at ~40°, the same offset would be a far larger
+fraction and might well cross into the asymmetric classification.
+
+**Reading the amplitude with caution.** At 80–108° peak-to-peak the section reaches |α| ≈ 40–54°,
+deep in the asymptotic tail of the Kirchhoff correlation (`f → 0.04`) and close to its ~60°
+validity limit (§15.5). Those excursions are inside the letter of the model's range but well
+outside where its constants were fitted, so the amplitudes should be read as "large" rather than
+as quantitative predictions.
 
 **Target — reproduce Table 1:**
 
@@ -591,6 +700,98 @@ recovered from Ref. [3] (Dimitriadis & Li), which is the source of the experimen
 - At V = 20 m/s with `C_m0` = 0.010, symmetric and asymmetric LCOs **coexist** — the result is
   initial-condition dependent. Bifurcation diagrams must be swept from multiple ICs to see this.
 - `C_m0 = 0.010` gives the best match to experiment.
+
+#### 10.3.2 The primary source: Dimitriadis & Li (Ref. [3])
+
+Obtaining Ref. [3] — *Bifurcation Behavior of Airfoil Undergoing Stall Flutter Oscillations in
+Low-Speed Wind Tunnel*, AIAA Journal **47**(11), 2009 — settles most of the open structural
+questions and **refutes one of our working hypotheses**.
+
+**Table 1 gives the rig directly:**
+
+| Parameter | Value |
+|---|---|
+| Wing span | 0.9 m |
+| Chord | 0.3 m |
+| **Pitch axis** | **0.115 m behind the leading edge** |
+| Wing assembly mass | 15 kg |
+| `I` about pitch axis | 0.31 kg·m² |
+| Plunge stiffness | 30.5 N/mm |
+| Pitch stiffness | 13.1 N·m/rad |
+
+**The elastic-axis derivation was right.** The pitch axis at 0.115 m is `0.3833c`, giving
+`a_h = −0.2333`. Our value inferred by inverting the divergence balance against the 17.7 m/s
+Shao quotes was `−0.2548` — **within 3%**, from a completely independent route. It also confirms
+the §10.3 finding that Eq. (24) must be missing the lift-transfer term, since the elastic axis is
+demonstrably not at the quarter chord.
+
+**A units inconsistency in Shao.** Table 1's quantities are **totals** for a 0.9 m span, while the
+aerodynamic loads in Eqs. (21)–(22) are per unit span. Shao converts the *mass*
+(15/0.9 = 16.67 kg/m) but leaves `I_θ`, `K_h` and `K_θ` at their total values — a mixed set.
+Dividing all four by the span is self-consistent; it leaves the frequency ratio unchanged but
+raises `ω_h` from 6.81 to 7.18 Hz.
+
+**Divergence now matches the experiment.** With Table 1's pitch axis and per-span properties,
+linear theory gives **17.89 m/s**. Dimitriadis & Li report that the second bifurcation — onto
+*asymmetric* LCOs — occurs "at the system's static divergence airspeed", with the first
+positive-pitch asymmetric LCOs at **17.8 m/s**. Our model's transition sits on it.
+
+**Two independent confirmations of the structural model.** The paper states "the stiffness in
+plunge is so much higher than the stiffness in pitch that there is no response at the plunge
+natural frequency. Despite the fact that the system has 2 degrees of freedom, the response is
+single mode." That is exactly our frequency ratio of 6.9 and single-DOF torsional character. And
+the support was "designed to allow pitch and plunge motion of the wing model **without friction**"
+— so near-zero structural damping is the intended design, and Shao's omission of it is faithful.
+
+##### The mean-incidence hypothesis is refuted
+
+§10.3.2 previously proposed that the missing Hopf required a mean incidence near stall. **The
+primary source rules this out.** At V = 12.2 m/s it states "the wing's equilibrium position
+around zero is still stable", and at V = 13 m/s "the LCOs are self-activated … the equilibrium
+position is no longer stable". The equilibrium is at zero pitch and it genuinely loses stability
+at 13 m/s.
+
+The experimental bifurcation sequence is:
+
+| V (m/s) | Behaviour | Bifurcation |
+|---|---|---|
+| < 12 | decaying | — |
+| 12.2 | decaying **or** LCO (needs impulse) | **fold** of limit cycles |
+| 13.0 | LCO, self-activated | **subcritical Hopf** |
+| 13–18 | symmetric LCO | — |
+| 17.8 | asymmetric LCO appears | at the **divergence** airspeed |
+| 23.7 | negative-pitch asymmetric LCO | — |
+
+Against that, our model gives: a fold below 10 m/s (LCO reachable with a 20° impulse at V = 10),
+no Hopf, and the divergence transition at 17.9 m/s. **So the divergence bifurcation is
+reproduced, the fold is roughly 2 m/s low, and the Hopf is absent.**
+
+##### What the Hopf actually requires
+
+Dimitriadis & Li attribute the Hopf to "the occurrence of dynamic stall, which allows the
+transfer of energy from the freestream to the wing". But a Hopf is by definition a *linear*
+instability of the equilibrium, and at zero incidence with attached flow there is no stall to
+drive it — a genuine tension in the experimental interpretation, not only in our model.
+
+The resolution is most likely quantitative rather than structural: the torsional mode's
+aerodynamic damping is small and negative in a narrow band, and whether it crosses zero at 13 m/s
+depends on the *magnitude* of the unsteady pitching moment. Our `C_m` is **48% low** (§9.3) — and
+`C_m` is precisely the pitch damping. An error of that size is more than enough to keep a
+marginally negative damping term negative. **The missing Hopf and the §9.3 shortfall are very
+likely the same defect**, which also explains the over-large LCO amplitudes.
+
+##### Remaining gaps, revised
+
+| # | Gap | Status |
+|---|---|---|
+| 1 | `C_m` 48% low (§9.3) | **the single remaining substantive gap** |
+| 2 | Mean angle of attack | **refuted** — equilibrium is at zero |
+| 3 | Structural damping | **resolved** — frictionless by design |
+| 4 | `a_h`, per-span scaling | **resolved** — Table 1 |
+| 5 | `x_θ` | still unstated; shown not to affect onset |
+| 6 | `ρ` | still assumed 1.225 |
+| 7 | `α_{3/4}` pitch-axis factor | **fixed** — see below |
+
 
 ---
 
