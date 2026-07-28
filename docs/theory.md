@@ -562,9 +562,65 @@ does not say what was changed for OA207 — expect this case to require its own 
 | `I_θ` | 0.31 kg/m² *(as printed)* |
 | `C_m0` | 0, 0.005, 0.010 |
 
-Elastic axis is at the **quarter chord** (implied by `I_θ` being defined about 1/4 chord), i.e.
-`a_h = −0.5`. **`S`, `x_θ` and `ρ` are not given** — the one outstanding item (§9), to be
-recovered from Ref. [3] (Dimitriadis & Li), which is the source of the experiment.
+#### The elastic axis, and a gap in Eq. (24)
+
+`I_θ` is defined about the quarter chord, which implies the elastic axis sits there
+(`a_h = −0.5`). But that placement puts the elastic axis **directly under the lift**, so the
+lift has zero moment arm about it and the section can never diverge — while the paper quotes a
+static divergence velocity of **17.7 m/s** from its own Ref. [3].
+
+The two statements are incompatible, and the resolution identifies a missing term. Eq. (24)
+gives the pitching moment as `Q_θ = ½ρV²c²·C_m` alone, with `C_m` taken about the quarter
+chord. If the elastic axis is *not* at the quarter chord, the lift contributes an additional
+moment about it, and Eq. (24) is missing that transfer:
+
+```
+Q_θ = ½ρV²c²·C_m  +  ½ρV²c·C_L·d,      d = b(a_h + 0.5)
+```
+
+With `a_h = −0.5` the added term vanishes and Eq. (24) is recovered exactly, so this is a
+strict generalisation rather than a change of model.
+
+**This recovers one of the two missing structural parameters from a number the paper does
+state.** Inverting the linear divergence balance `K_θ = ½ρV²c·C_Nα·d` at V = 17.7 m/s:
+
+```
+d    = 13.1 / (½ × 1.225 × 17.7² × 0.3 × 6.1879) = 0.03677 m = 0.1226 c
+x_ea = 0.25c + 0.1226c = 0.373 c
+a_h  = d/b − 0.5 = −0.2548
+```
+
+Linearising the full 18-state system with that value returns divergence at **17.70 m/s**,
+confirming the calibration end to end rather than only through the closed-form balance.
+
+**Still outstanding:** the static mass moment `S` (equivalently `x_θ`) and the density `ρ`
+(assumed 1.225 kg/m³). `x_θ = 0` puts the mass centre on the elastic axis, leaving the two
+degrees of freedom coupled only aerodynamically — which is legitimate for a stall-flutter rig,
+since stall flutter is fundamentally a torsional instability, but it is an assumption.
+
+#### No Hopf bifurcation is present in the linearised system
+
+Linearising the coupled system about the equilibrium at each velocity gives, for
+`C_m0 = 0`:
+
+| V (m/s) | max Re(λ) | f (Hz) |
+|---|---|---|
+| 10 | −0.106 | 6.80 |
+| 14 | −0.206 | 6.81 |
+| 17 | −0.290 | 6.81 |
+| 18 | **+1.070** | **0.00** |
+
+Both oscillatory modes stay damped — and damping *increases* monotonically with V — right up
+to 17.7 m/s, where a **real** eigenvalue crosses zero. That is static divergence, not a Hopf.
+
+This is physically consistent: the two modes sit at 6.81 Hz (plunge) and 1.02 Hz (torsion), a
+ratio of 6.6, and they never coalesce, so classical bending–torsion flutter is impossible for
+this rig. It is also consistent with stall flutter being a genuinely *nonlinear* phenomenon —
+the negative aerodynamic damping that drives it appears only once the section oscillates into
+stall, which cannot happen at the linearised equilibrium where the flow is fully attached.
+
+**The paper, however, reports a subcritical Hopf at V = 12 m/s** — an oscillatory instability
+of the equilibrium. Our model does not reproduce it. See §10.3.1 for what this means.
 
 **Target — reproduce Table 1:**
 
