@@ -827,15 +827,51 @@ The Hopf and the amplitude errors are now **decoupled**, not one defect:
   13 m/s under hand-administered impulses and residual tunnel turbulence, without the equilibrium
   ever formally losing stability.
 
-- **The amplitude and fold-velocity errors** remain plausibly the `C_m` shortfall, because there
-  the section *does* stall and the deficient term is active. §10.3.3 tests this.
+- **The amplitude and fold-velocity errors** are *also* not the `C_m` shortfall — see below.
+  Correcting `C_m` upward makes them worse, because the dynamic-stall moment is the energy
+  *source*, not a damping term.
+
+##### And REFUTED for the amplitude too — the sign is backwards
+
+The same knob applied to the nonlinear LCO, where the section genuinely stalls and the term is
+active (θ₀ = 20°, 15 s):
+
+| `c_m_stall_scale` | V = 13 m/s | V = 16 m/s |
+|---|---|---|
+| 1.00 | 101.4° p-p | 94.1° p-p |
+| **1.92** (matches the paper's `C_m`) | **145.6°** | **121.3°** |
+| 3.00 | 228.9° | 173.0° |
+| 5.00 | 961.1° | 868.4° |
+| *experiment (Fig. 20)* | *~40°* | *~40°* |
+
+Increasing `C_m` makes the amplitude **larger**, not smaller. Correcting it toward the paper's
+value takes us from 101° to 146° against a target of 40° — **the error more than doubles**.
+
+The premise was wrong. §10.3.2 reasoned "`C_m` *is* the pitch damping", treating it as
+dissipative. In stall flutter the dynamic-stall moment is the opposite: it is the **energy
+source**. Ref. [3] says so directly — "the occurrence of dynamic stall … allows the transfer of
+energy from the freestream to the wing". Amplifying the driver amplifies the limit cycle, which is
+exactly what the table shows.
+
+So the §9.3 shortfall makes our amplitudes *too small*, and they are already 2.5× too large.
+Fixing it would make the flutter agreement worse, not better.
+
+##### The amplitudes are outside the model's validity anyway
+
+At scale 1.0 the LCO reaches ±50° in pitch; at 1.92, ±73°; at 5.0 the section is rotating through
+multiple revolutions. The Kirchhoff reconstruction is only valid to about ±60° (§15.5) and its
+constants were fitted nowhere near that. **The amplitude comparison is therefore not a meaningful
+test of the model** — it is a comparison of an extrapolation against data. The correct reading is
+that our LCO fails to be limited by something that limits the real one, not that a coefficient is
+mis-scaled.
 
 ##### Remaining gaps, revised
 
 | # | Gap | Status |
 |---|---|---|
-| 1 | `C_m` 48% low (§9.3) | active in deep stall only; **cannot** explain the Hopf |
-| 1b | The Hopf itself | **unexplained**; five candidates eliminated |
+| 1 | `C_m` 48% low (§9.3) | **cannot** explain the Hopf; makes amplitude *worse* |
+| 1b | The Hopf | **unexplained**; five candidates eliminated |
+| 1c | LCO amplitude | **unexplained**; runs outside the ±60° validity range |
 | 2 | Mean angle of attack | **refuted** — equilibrium is at zero |
 | 3 | Structural damping | **resolved** — frictionless by design |
 | 4 | `a_h`, per-span scaling | **resolved** — Table 1 |

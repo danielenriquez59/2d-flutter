@@ -125,10 +125,32 @@ a resolution: the torsion mode stays damped.
 The experiment's sequence is fold at 12.2, subcritical Hopf at 13.0, divergence-driven asymmetric
 LCO at 17.8. We reproduce the divergence bifurcation, put the fold ~2 m/s low, and miss the Hopf.
 
-**The missing Hopf is very likely the §9.3 defect.** Pitch damping near the torsional mode is
-small and marginally negative; whether it crosses zero at 13 m/s depends on the magnitude of the
-unsteady pitching moment — and our `C_m` is 48% low. That one error plausibly explains both the
-absent Hopf and the over-large LCO amplitudes.
+### The `C_m` hypothesis is refuted — in both directions
+
+A diagnostic scale on the dynamic-stall moment (`c_m_stall_scale`) tests the standing hypothesis
+that the 48% `C_m` shortfall explains the flutter discrepancies. It does not
+([`docs/theory.md`](docs/theory.md) §10.3.2).
+
+**Linearly, it does nothing.** At V = 13 m/s a **tenfold** increase moves the eigenvalue from
+−0.17174 to −0.17150 — 0.014% — and never produces a Hopf. The reason is structural: at α ≈ 0 the
+flow is attached (`f ≈ 0.998`), so `C_m^f ≈ K₀·C_N^f ≈ 0` and `C_m^v = 0`. **The deficient term is
+identically inactive at the linearisation point.**
+
+**Nonlinearly, the sign is backwards.** Correcting `C_m` toward the paper's value takes the LCO
+from 101° to **146°** peak-to-peak against a target of ~40° — the error more than doubles. The
+premise was wrong: the dynamic-stall moment is not damping, it is the **energy source** (Ref. [3]:
+dynamic stall "allows the transfer of energy from the freestream to the wing"). Amplifying the
+driver amplifies the limit cycle.
+
+**And the amplitudes are outside the model's validity anyway** — ±50° at scale 1.0, ±73° at 1.92,
+against a Kirchhoff range of ±60°. The amplitude comparison is an extrapolation, not a test.
+
+Five candidates for the missing Hopf are now eliminated: the `C_m` shortfall, mean incidence,
+`x_θ`, the Eq. (18) ambiguity, and the pitch-axis factor. Since the attached-flow model is
+independently validated to 3–5% (§10.0), what remains is that the experimental Hopf may not be a
+linear instability of the attached-flow equilibrium at all. Ref. [3] supports this: it attributes
+the Hopf to dynamic stall, which cannot act at zero incidence, and a fold at 12.2 m/s with a
+rapidly shrinking basin would present as a Hopf at 13 m/s under hand-administered impulses.
 
 ### Limitations
 
