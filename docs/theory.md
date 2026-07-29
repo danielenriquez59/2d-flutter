@@ -780,11 +780,62 @@ depends on the *magnitude* of the unsteady pitching moment. Our `C_m` is **48% l
 marginally negative damping term negative. **The missing Hopf and the §9.3 shortfall are very
 likely the same defect**, which also explains the over-large LCO amplitudes.
 
+##### The C_m hypothesis is REFUTED for the Hopf
+
+§10.3.2 proposed that the missing Hopf was the §9.3 `C_m` shortfall: pitch damping is marginally
+negative, `C_m` *is* pitch damping, and ours is 48% low. A diagnostic scale on the dynamic-stall
+moment (`c_m_stall_scale`, multiplying `C_m^f + C_m^v`) tests it directly.
+
+**Calibration.** The knob is cleanly separable — `C_N` peak is unchanged at 1.783 for every
+scale, and `C_m` min moves linearly. Scale ≈ **1.92** reproduces the paper's `C_m` min = −0.62.
+
+**Linear stability — no effect whatsoever:**
+
+| `c_m_stall_scale` | oscillatory max Re at V = 13 | onset |
+|---|---|---|
+| 1.00 | −0.17174 | 18.0, divergence |
+| 1.92 | −0.17171 | 18.0, divergence |
+| 3.00 | −0.17168 | 17.5, divergence |
+| 5.00 | −0.17163 | 17.5, divergence |
+| 10.00 | −0.17150 | 16.5, divergence |
+
+A **tenfold** increase in the dynamic-stall moment moves the eigenvalue by 0.014%, and never
+produces a Hopf.
+
+**Why, in hindsight.** At the equilibrium `α ≈ 0` the flow is fully attached: `f ≈ 0.998`, so
+`C_m^f = [K₀ + K₁(1−f) + K₂ sin(π f²)]·C_N^f ≈ K₀·C_N^f ≈ 0`, and `C_m^v = 0` because no vortex
+has been shed. **The deficient term is identically inactive at the linearisation point.** Scaling
+zero gives zero. The §9.3 shortfall is a *deep-stall* error and cannot, even in principle, affect
+a linear stability boundary at zero incidence.
+
+This is the same structural reason the mean-incidence hypothesis was attractive — and it is why
+its refutation by Ref. [3] leaves the Hopf genuinely unexplained rather than merely mis-attributed.
+
+##### What this leaves
+
+The Hopf and the amplitude errors are now **decoupled**, not one defect:
+
+- **The missing Hopf** is not the `C_m` shortfall, not the mean incidence, not `x_θ`, not the
+  Eq. (18) ambiguity, and not the pitch-axis factor. All five are tested and eliminated. Since our
+  attached-flow model is independently validated (§10.0, 3–5%), the remaining possibilities are
+  that the experimental Hopf is not a linear instability of the attached-flow equilibrium at all,
+  or that it requires physics outside this model class.
+
+  There is direct support for the first reading in Ref. [3] itself: it attributes the Hopf to
+  "the occurrence of dynamic stall", which cannot act at `α ≈ 0`. A fold at 12.2 m/s whose stable
+  equilibrium has a rapidly shrinking basin above it would look experimentally like a Hopf at
+  13 m/s under hand-administered impulses and residual tunnel turbulence, without the equilibrium
+  ever formally losing stability.
+
+- **The amplitude and fold-velocity errors** remain plausibly the `C_m` shortfall, because there
+  the section *does* stall and the deficient term is active. §10.3.3 tests this.
+
 ##### Remaining gaps, revised
 
 | # | Gap | Status |
 |---|---|---|
-| 1 | `C_m` 48% low (§9.3) | **the single remaining substantive gap** |
+| 1 | `C_m` 48% low (§9.3) | active in deep stall only; **cannot** explain the Hopf |
+| 1b | The Hopf itself | **unexplained**; five candidates eliminated |
 | 2 | Mean angle of attack | **refuted** — equilibrium is at zero |
 | 3 | Structural damping | **resolved** — frictionless by design |
 | 4 | `a_h`, per-span scaling | **resolved** — Table 1 |

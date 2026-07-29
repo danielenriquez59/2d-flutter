@@ -210,7 +210,9 @@ class LBModel:
         c_m_v += ds.moment_overshoot(d_c_n_v, x[I_X11], af)
 
         c_n = c_n_i + c_n_f + c_n_v
-        c_m = c_m_i + c_m_f + c_m_v + af.C_m0
+        # c_m_stall_scale is a diagnostic knob on the dynamic-stall moment only
+        # (theory.md §9.3); it is 1.0 in every committed case.
+        c_m = c_m_i + af.c_m_stall_scale * (c_m_f + c_m_v) + af.C_m0
         c_c = c_c_f
         c_l, c_d = al.lift_and_drag(c_n, c_c, alpha_e, alpha)
 

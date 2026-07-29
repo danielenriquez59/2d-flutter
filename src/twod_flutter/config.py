@@ -112,6 +112,12 @@ class Airfoil:
     # by Eq. (15) and accumulates.
     vortex_overshoot_mode: str = "additive"
 
+    # DIAGNOSTIC ONLY. Multiplies the separated + vortex pitching moment
+    # (C_m^f + C_m^v), i.e. the dynamic-stall part that theory.md §9.3 finds
+    # 48% low. It is NOT physics -- it exists to test whether that shortfall
+    # explains the flutter discrepancies. Leave at 1.0 for any real result.
+    c_m_stall_scale: float = 1.0
+
     # --- from Chantharasenawong (2007) ----------------------------------
     # sigma1 and sigma2 are switch TABLES (his Tables 2.3, 2.4), implemented in
     # aero/separation.py and aero/dynamic_stall.py -- not free parameters.
